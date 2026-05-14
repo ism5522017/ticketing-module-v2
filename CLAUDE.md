@@ -345,17 +345,15 @@ Items marked DONE describe what was already built. Don't re-do them.
 **Result:** Files in repo root (`package.json`, `tsconfig.json`, `next.config.ts`, `postcss.config.mjs`, `eslint.config.mjs`) and `src/app/` (App Router with `layout.tsx`, `page.tsx`, `globals.css`).
 **How to verify:** `npm run build` succeeds; `npm run typecheck` clean.
 
-#### 0.2 shadcn/ui init + base components — Status: PARTIAL (theme port pending)
-**What:** Initialize shadcn/ui with the `base-nova` preset (Base UI + Radix) and add the foundational components: button, card, input, label.
-**Result:** `components.json`, `src/components/ui/{button,card,input,label}.tsx`, `src/lib/utils.ts` (`cn()` helper). `globals.css` updated with shadcn theme tokens (neutral base).
-**Still to do — theme tokens port:**
-- Read the old app's color variables from `../ticketing module/public/css/app.css` (search for `--c-*` and urgency colors).
-- Map them into `src/app/globals.css` inside the `@theme` block (Tailwind v4 syntax) so shadcn's defaults are overridden.
-- Tokens to port: `--c-gray-200`, `--c-gray-bg`, `--c-border`, `--c-muted`, `--c-red`, `--c-yellow`, urgency colors used in `.badge-critical`/`.badge-high`/`.badge-medium`/`.badge-low`/`.urgency-pill-*`, status dot colors (`#E24B4A`, `#378ADD`, `#639922`).
-- Also port radii: `--r-sm`, `--r-md`, `--r-lg`, `--r-pill`. And font sizes: `--fs-xxs`, `--fs-xs`, `--fs-sm`, `--fs-base`, `--fs-lg`, `--fs-xl`.
-**Acceptance criteria:**
-- Theme tokens visible in `globals.css` `@theme` block.
-- Visual sanity check on `/login` (Phase 1.5) matches the old app's color palette.
+#### 0.2 shadcn/ui init + base components — Status: DONE
+**What:** Initialize shadcn/ui with the `base-nova` preset (Base UI + Radix) and add the foundational components: button, card, input, label. Port the old app's design tokens.
+**Result:** `components.json`, `src/components/ui/{button,card,input,label}.tsx`, `src/lib/utils.ts` (`cn()` helper). `globals.css` contains two `@theme` blocks: the original shadcn block (neutral base) plus a second block of project tokens namespaced with `deh-` (brand colors, tints, urgency hues, status-dot colors, radii ladder, type ramp). Both Tailwind utilities and raw `var(--color-deh-*)` references resolve.
+**Naming convention for project tokens:**
+- Colors: `bg-deh-blue`, `text-deh-yellow`, `bg-urgency-critical`, `bg-status-open`, etc.
+- Radii: `rounded-deh-sm` (6px) → `rounded-deh-pill` (100px).
+- Type: `text-deh-xxs` (9px) → `text-deh-xl` (24px).
+- shadcn defaults remain untouched (e.g., `text-sm` still resolves to Tailwind's default), so primitive components don't regress.
+**Visual sanity check (pending):** full validation of the palette match happens on `/login` (1.5) and the (authed) shell (0.6).
 
 #### 0.3 Drizzle schema introspection — Status: DONE
 **What:** Pull the live Supabase schema into typed Drizzle definitions.
@@ -1489,6 +1487,19 @@ requires user approval and a Changelog entry.
 
 Append every meaningful advancement here. Newest at the top. Date format:
 ISO `YYYY-MM-DD`. Keep entries factual and short — link to commits when relevant.
+
+### 2026-05-13 — 1.1 + 1.2 migration files written (pending application)
+- `supabase/migrations/20260514000001_v2_users_table.sql` — creates `user_role` enum, `public.users` table (with `legacy_bcrypt_hash`, both onboarding flags), and nullable `user_id` FK on every role table. Pure additive.
+- `supabase/migrations/20260514000002_buildings_code.sql` — adds nullable unique `buildings.code` column for tenant `BUILDING-FLAT` login.
+- Created `supabase/migrations/` folder (didn't exist in V2 before this).
+- **Next step requires user action**: paste both into Supabase SQL Editor → Run, in order. Then `npm run db:pull` to regenerate `src/db/schema.ts`. Phases 1.3+ depend on the introspected types existing.
+
+### 2026-05-13 — 0.2 theme tokens ported
+- Added a second `@theme` block to `src/app/globals.css` containing every design token from the old app's `public/css/app.css` (brand, tints, neutrals, urgency hues, status-dot colors, radii, type ramp).
+- Tokens namespaced with `deh-` so shadcn defaults stay intact: `bg-deh-blue`, `text-deh-yellow`, `rounded-deh-pill`, `text-deh-base`, etc.
+- Status dot hexes (`#E24B4A`/`#378ADD`/`#639922`) — previously hardcoded in old app's JS — are now first-class tokens (`bg-status-open`, `bg-status-progress`, `bg-status-resolved`).
+- `tsc --noEmit` clean, `next build` clean.
+- Phase 0 is now fully DONE except for 0.6 (auth shell, TODO).
 
 ### 2026-05-13 — Migration plan expanded with per-item detail
 - Rewrote §7 (Migration plan) from a table-of-todos to fully-detailed per-item specs.

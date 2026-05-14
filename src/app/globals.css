@@ -48,6 +48,65 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/* =============================================================
+   DEH project tokens — ported from the old Rails app's app.css.
+   Namespaced with `deh-` so shadcn defaults stay intact.
+   Use as Tailwind utilities: bg-deh-blue, text-deh-yellow,
+   rounded-deh-pill, text-deh-base, etc.
+   ============================================================= */
+@theme {
+  /* Brand & surface */
+  --color-deh-blue: #185FA5;
+  --color-deh-green: #3B6D11;
+  --color-deh-orange: #f77f00;
+  --color-deh-yellow: #fcbf49;
+  --color-deh-red: #d62828;
+  --color-deh-dark: #003049;
+  --color-deh-bg: #EAE2B7;
+  --color-deh-white: #ffffff;
+  --color-deh-text: #222222;
+
+  /* Tints */
+  --color-deh-light-blue: #E6F1FB;
+  --color-deh-light-green: #EAF3DE;
+  --color-deh-light-orange: #FAEEDA;
+  --color-deh-dark-orange: #633806;
+
+  /* Neutrals */
+  --color-deh-gray-bg: #f4f6f8;
+  --color-deh-gray-200: #e6e9ed;
+  --color-deh-border: #f0f0f0;
+  --color-deh-muted: #888888;
+  --color-deh-muted-light: #aaaaaa;
+
+  /* Urgency — used by .badge-* and .urgency-pill-* in the old app */
+  --color-urgency-critical: #d62828;
+  --color-urgency-high: #f77f00;
+  --color-urgency-medium: #fcbf49;
+  --color-urgency-low: #e6e9ed;
+
+  /* Status dots — referenced from JS as hex literals in the old app */
+  --color-status-open: #E24B4A;
+  --color-status-progress: #378ADD;
+  --color-status-resolved: #639922;
+
+  /* Radii — five-tier ladder */
+  --radius-deh-sm: 6px;
+  --radius-deh-md: 8px;
+  --radius-deh-lg: 12px;
+  --radius-deh-xl: 16px;
+  --radius-deh-pill: 100px;
+
+  /* Type ramp — small, dense; matches old app's compact tables/cards */
+  --text-deh-xxs: 9px;
+  --text-deh-xs: 11px;
+  --text-deh-sm: 12px;
+  --text-deh-base: 13px;
+  --text-deh-md: 14px;
+  --text-deh-lg: 18px;
+  --text-deh-xl: 24px;
+}
+
 :root {
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);

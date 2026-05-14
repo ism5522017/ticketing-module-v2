@@ -1,10 +1,14 @@
 import { relations } from "drizzle-orm/relations";
-import { units, tenants, tickets, requisitions, buildings, drs, societies } from "./schema";
+import { units, tenants, users, tickets, requisitions, buildings, admins, managers, drs, societies, usersInAuth } from "./schema";
 
 export const tenantsRelations = relations(tenants, ({one, many}) => ({
 	unit: one(units, {
 		fields: [tenants.unitId],
 		references: [units.id]
+	}),
+	user: one(users, {
+		fields: [tenants.userId],
+		references: [users.id]
 	}),
 	drs: many(drs),
 }));
@@ -16,6 +20,17 @@ export const unitsRelations = relations(units, ({one, many}) => ({
 		references: [buildings.id]
 	}),
 	tickets: many(tickets),
+}));
+
+export const usersRelations = relations(users, ({one, many}) => ({
+	tenants: many(tenants),
+	admins: many(admins),
+	managers: many(managers),
+	usersInAuth: one(usersInAuth, {
+		fields: [users.id],
+		references: [usersInAuth.id]
+	}),
+	drs: many(drs),
 }));
 
 export const requisitionsRelations = relations(requisitions, ({one}) => ({
@@ -55,6 +70,20 @@ export const buildingsRelations = relations(buildings, ({one, many}) => ({
 	}),
 }));
 
+export const adminsRelations = relations(admins, ({one}) => ({
+	user: one(users, {
+		fields: [admins.userId],
+		references: [users.id]
+	}),
+}));
+
+export const managersRelations = relations(managers, ({one}) => ({
+	user: one(users, {
+		fields: [managers.userId],
+		references: [users.id]
+	}),
+}));
+
 export const drsRelations = relations(drs, ({one, many}) => ({
 	tickets: many(tickets),
 	building: one(buildings, {
@@ -65,9 +94,17 @@ export const drsRelations = relations(drs, ({one, many}) => ({
 		fields: [drs.tenantId],
 		references: [tenants.id]
 	}),
+	user: one(users, {
+		fields: [drs.userId],
+		references: [users.id]
+	}),
 }));
 
 export const societiesRelations = relations(societies, ({many}) => ({
 	tickets: many(tickets),
 	buildings: many(buildings),
+}));
+
+export const usersInAuthRelations = relations(usersInAuth, ({many}) => ({
+	users: many(users),
 }));

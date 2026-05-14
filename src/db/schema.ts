@@ -6,6 +6,7 @@ export const ticketRaiser = pgEnum("ticket_raiser", ['tenant', 'dr'])
 export const ticketScope = pgEnum("ticket_scope", ['unit', 'building', 'society'])
 export const ticketStatus = pgEnum("ticket_status", ['open', 'progress', 'resolved'])
 export const ticketUrgency = pgEnum("ticket_urgency", ['critical', 'high', 'medium', 'low'])
+export const userRole = pgEnum("user_role", ['tenant', 'admin', 'manager', 'dr'])
 
 export const ticketsReferenceSeq = pgSequence("tickets_reference_seq", {  startWith: "101", increment: "1", minValue: "1", maxValue: "9223372036854775807", cache: "1", cycle: false })
 
@@ -21,16 +22,23 @@ export const tenants = pgTable("tenants", {
 	mustChangePassword: boolean("must_change_password").default(false).notNull(),
 	phone: text(),
 	active: boolean().default(true).notNull(),
+	userId: uuid("user_id"),
 }, (table) => [
 	index("tenants_active_idx").using("btree", table.active.asc().nullsLast().op("bool_ops")),
 	uniqueIndex("tenants_email_lower_idx").using("btree", sql`lower(email)`),
 	index("tenants_phone_idx").using("btree", table.phone.asc().nullsLast().op("text_ops")),
 	index("tenants_unit_id_idx").using("btree", table.unitId.asc().nullsLast().op("uuid_ops")),
+	uniqueIndex("tenants_user_id_idx").using("btree", table.userId.asc().nullsLast().op("uuid_ops")).where(sql`(user_id IS NOT NULL)`),
 	foreignKey({
 			columns: [table.unitId],
 			foreignColumns: [units.id],
 			name: "tenants_unit_id_fkey"
 		}).onDelete("restrict"),
+	foreignKey({
+			columns: [table.userId],
+			foreignColumns: [users.id],
+			name: "tenants_user_id_fkey"
+		}).onDelete("set null"),
 ]);
 
 export const requisitions = pgTable("requisitions", {
@@ -59,20 +67,6 @@ export const requisitions = pgTable("requisitions", {
 			foreignColumns: [tickets.id],
 			name: "requisitions_issue_id_fkey"
 		}).onDelete("cascade"),
-]);
-
-export const managers = pgTable("managers", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	name: text().notNull(),
-	username: text().notNull(),
-	passwordDigest: text("password_digest").notNull(),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-	mustChangePassword: boolean("must_change_password").default(false).notNull(),
-	active: boolean().default(true).notNull(),
-}, (table) => [
-	index("managers_active_idx").using("btree", table.active.asc().nullsLast().op("bool_ops")),
-	uniqueIndex("managers_username_lower_idx").using("btree", sql`lower(username)`),
 ]);
 
 export const societies = pgTable("societies", {
@@ -108,6 +102,48 @@ export const units = pgTable("units", {
 			foreignColumns: [buildings.id],
 			name: "units_building_id_fkey"
 		}).onDelete("restrict"),
+]);
+
+export const admins = pgTable("admins", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	name: text().notNull(),
+	username: text().notNull(),
+	passwordDigest: text("password_digest").notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	mustChangePassword: boolean("must_change_password").default(false).notNull(),
+	active: boolean().default(true).notNull(),
+	userId: uuid("user_id"),
+}, (table) => [
+	index("admins_active_idx").using("btree", table.active.asc().nullsLast().op("bool_ops")),
+	uniqueIndex("admins_user_id_idx").using("btree", table.userId.asc().nullsLast().op("uuid_ops")).where(sql`(user_id IS NOT NULL)`),
+	uniqueIndex("admins_username_lower_idx").using("btree", sql`lower(username)`),
+	foreignKey({
+			columns: [table.userId],
+			foreignColumns: [users.id],
+			name: "admins_user_id_fkey"
+		}).onDelete("set null"),
+]);
+
+export const managers = pgTable("managers", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	name: text().notNull(),
+	username: text().notNull(),
+	passwordDigest: text("password_digest").notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	mustChangePassword: boolean("must_change_password").default(false).notNull(),
+	active: boolean().default(true).notNull(),
+	userId: uuid("user_id"),
+}, (table) => [
+	index("managers_active_idx").using("btree", table.active.asc().nullsLast().op("bool_ops")),
+	uniqueIndex("managers_user_id_idx").using("btree", table.userId.asc().nullsLast().op("uuid_ops")).where(sql`(user_id IS NOT NULL)`),
+	uniqueIndex("managers_username_lower_idx").using("btree", sql`lower(username)`),
+	foreignKey({
+			columns: [table.userId],
+			foreignColumns: [users.id],
+			name: "managers_user_id_fkey"
+		}).onDelete("set null"),
 ]);
 
 export const tickets = pgTable("tickets", {
@@ -170,18 +206,27 @@ export const tickets = pgTable("tickets", {
 	check("tickets_scope_check", sql`((scope = 'unit'::ticket_scope) AND (unit_id IS NOT NULL) AND (building_id IS NOT NULL)) OR ((scope = 'building'::ticket_scope) AND (building_id IS NOT NULL) AND (unit_id IS NULL)) OR ((scope = 'society'::ticket_scope) AND (unit_id IS NULL) AND (building_id IS NULL))`),
 ]);
 
-export const admins = pgTable("admins", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	name: text().notNull(),
-	username: text().notNull(),
-	passwordDigest: text("password_digest").notNull(),
+export const users = pgTable("users", {
+	id: uuid().primaryKey().notNull(),
+	role: userRole().notNull(),
+	username: text(),
+	fullName: text("full_name").notNull(),
+	phone: text(),
+	active: boolean().default(true).notNull(),
+	needsPasswordSet: boolean("needs_password_set").default(true).notNull(),
+	needsProfileConfirm: boolean("needs_profile_confirm").default(true).notNull(),
+	legacyBcryptHash: text("legacy_bcrypt_hash"),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-	mustChangePassword: boolean("must_change_password").default(false).notNull(),
-	active: boolean().default(true).notNull(),
 }, (table) => [
-	index("admins_active_idx").using("btree", table.active.asc().nullsLast().op("bool_ops")),
-	uniqueIndex("admins_username_lower_idx").using("btree", sql`lower(username)`),
+	index("users_active_idx").using("btree", table.active.asc().nullsLast().op("bool_ops")),
+	index("users_role_idx").using("btree", table.role.asc().nullsLast().op("enum_ops")),
+	uniqueIndex("users_username_lower_idx").using("btree", sql`lower(username)`).where(sql`(username IS NOT NULL)`),
+	foreignKey({
+			columns: [table.id],
+			foreignColumns: [table.id],
+			name: "users_id_fkey"
+		}).onDelete("cascade"),
 ]);
 
 export const drs = pgTable("drs", {
@@ -196,9 +241,11 @@ export const drs = pgTable("drs", {
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	mustChangePassword: boolean("must_change_password").default(false).notNull(),
+	userId: uuid("user_id"),
 }, (table) => [
 	uniqueIndex("drs_active_building_idx").using("btree", table.buildingId.asc().nullsLast().op("uuid_ops")).where(sql`active`),
 	index("drs_tenant_id_idx").using("btree", table.tenantId.asc().nullsLast().op("uuid_ops")),
+	uniqueIndex("drs_user_id_idx").using("btree", table.userId.asc().nullsLast().op("uuid_ops")).where(sql`(user_id IS NOT NULL)`),
 	uniqueIndex("drs_username_lower_idx").using("btree", sql`lower(username)`),
 	foreignKey({
 			columns: [table.buildingId],
@@ -210,6 +257,11 @@ export const drs = pgTable("drs", {
 			foreignColumns: [tenants.id],
 			name: "drs_tenant_id_fkey"
 		}).onDelete("restrict"),
+	foreignKey({
+			columns: [table.userId],
+			foreignColumns: [users.id],
+			name: "drs_user_id_fkey"
+		}).onDelete("set null"),
 ]);
 
 export const monthlyBudgets = pgTable("monthly_budgets", {
@@ -246,8 +298,10 @@ export const buildings = pgTable("buildings", {
 	city: text(),
 	state: text(),
 	category: text(),
+	code: text(),
 }, (table) => [
 	index("buildings_city_idx").using("btree", table.city.asc().nullsLast().op("text_ops")),
+	uniqueIndex("buildings_code_upper_idx").using("btree", sql`upper(code)`).where(sql`(code IS NOT NULL)`),
 	index("buildings_locality_idx").using("btree", table.locality.asc().nullsLast().op("text_ops")),
 	uniqueIndex("buildings_society_name_idx").using("btree", sql`society_id`, sql`lower(name)`),
 	foreignKey({
