@@ -1,4 +1,4 @@
-import { pgTable, index, uniqueIndex, foreignKey, uuid, text, timestamp, boolean, numeric, jsonb, check, date, varchar, pgView, pgSequence, pgEnum } from "drizzle-orm/pg-core"
+import { pgTable, index, uniqueIndex, foreignKey, pgPolicy, uuid, text, timestamp, boolean, numeric, jsonb, check, unique, varchar, date, pgView, pgSequence, pgEnum } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
 
 export const requisitionApproval = pgEnum("requisition_approval", ['Pending', 'Approved', 'Rejected'])
@@ -39,6 +39,10 @@ export const tenants = pgTable("tenants", {
 			foreignColumns: [users.id],
 			name: "tenants_user_id_fkey"
 		}).onDelete("set null"),
+	pgPolicy("tenants_admin_delete", { as: "permissive", for: "delete", to: ["public"], using: sql`("current_role"() = 'admin'::user_role)` }),
+	pgPolicy("tenants_admin_insert", { as: "permissive", for: "insert", to: ["public"] }),
+	pgPolicy("tenants_read", { as: "permissive", for: "select", to: ["public"] }),
+	pgPolicy("tenants_update", { as: "permissive", for: "update", to: ["public"] }),
 ]);
 
 export const requisitions = pgTable("requisitions", {
@@ -67,6 +71,8 @@ export const requisitions = pgTable("requisitions", {
 			foreignColumns: [tickets.id],
 			name: "requisitions_issue_id_fkey"
 		}).onDelete("cascade"),
+	pgPolicy("requisitions_manager_write", { as: "permissive", for: "all", to: ["public"], using: sql`("current_role"() = ANY (ARRAY['manager'::user_role, 'admin'::user_role]))`, withCheck: sql`("current_role"() = ANY (ARRAY['manager'::user_role, 'admin'::user_role]))`  }),
+	pgPolicy("requisitions_read", { as: "permissive", for: "select", to: ["public"] }),
 ]);
 
 export const societies = pgTable("societies", {
@@ -76,6 +82,8 @@ export const societies = pgTable("societies", {
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
 	uniqueIndex("societies_name_lower_idx").using("btree", sql`lower(name)`),
+	pgPolicy("societies_admin_write", { as: "permissive", for: "all", to: ["public"], using: sql`("current_role"() = 'admin'::user_role)`, withCheck: sql`("current_role"() = 'admin'::user_role)`  }),
+	pgPolicy("societies_read", { as: "permissive", for: "select", to: ["public"] }),
 ]);
 
 export const units = pgTable("units", {
@@ -102,6 +110,35 @@ export const units = pgTable("units", {
 			foreignColumns: [buildings.id],
 			name: "units_building_id_fkey"
 		}).onDelete("restrict"),
+	pgPolicy("units_admin_write", { as: "permissive", for: "all", to: ["public"], using: sql`("current_role"() = 'admin'::user_role)`, withCheck: sql`("current_role"() = 'admin'::user_role)`  }),
+	pgPolicy("units_read", { as: "permissive", for: "select", to: ["public"] }),
+]);
+
+export const users = pgTable("users", {
+	id: uuid().primaryKey().notNull(),
+	role: userRole().notNull(),
+	username: text(),
+	fullName: text("full_name").notNull(),
+	phone: text(),
+	active: boolean().default(true).notNull(),
+	needsPasswordSet: boolean("needs_password_set").default(true).notNull(),
+	needsProfileConfirm: boolean("needs_profile_confirm").default(true).notNull(),
+	legacyBcryptHash: text("legacy_bcrypt_hash"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("users_active_idx").using("btree", table.active.asc().nullsLast().op("bool_ops")),
+	index("users_role_idx").using("btree", table.role.asc().nullsLast().op("enum_ops")),
+	uniqueIndex("users_username_lower_idx").using("btree", sql`lower(username)`).where(sql`(username IS NOT NULL)`),
+	foreignKey({
+			columns: [table.id],
+			foreignColumns: [table.id],
+			name: "users_id_fkey"
+		}).onDelete("cascade"),
+	pgPolicy("users_admin_delete", { as: "permissive", for: "delete", to: ["public"], using: sql`("current_role"() = 'admin'::user_role)` }),
+	pgPolicy("users_admin_insert", { as: "permissive", for: "insert", to: ["public"] }),
+	pgPolicy("users_self_read", { as: "permissive", for: "select", to: ["public"] }),
+	pgPolicy("users_self_update", { as: "permissive", for: "update", to: ["public"] }),
 ]);
 
 export const admins = pgTable("admins", {
@@ -123,6 +160,8 @@ export const admins = pgTable("admins", {
 			foreignColumns: [users.id],
 			name: "admins_user_id_fkey"
 		}).onDelete("set null"),
+	pgPolicy("admins_admin_write", { as: "permissive", for: "all", to: ["public"], using: sql`("current_role"() = 'admin'::user_role)`, withCheck: sql`("current_role"() = 'admin'::user_role)`  }),
+	pgPolicy("admins_read", { as: "permissive", for: "select", to: ["public"] }),
 ]);
 
 export const managers = pgTable("managers", {
@@ -144,6 +183,8 @@ export const managers = pgTable("managers", {
 			foreignColumns: [users.id],
 			name: "managers_user_id_fkey"
 		}).onDelete("set null"),
+	pgPolicy("managers_admin_write", { as: "permissive", for: "all", to: ["public"], using: sql`("current_role"() = 'admin'::user_role)`, withCheck: sql`("current_role"() = 'admin'::user_role)`  }),
+	pgPolicy("managers_read", { as: "permissive", for: "select", to: ["public"] }),
 ]);
 
 export const tickets = pgTable("tickets", {
@@ -202,31 +243,13 @@ export const tickets = pgTable("tickets", {
 			foreignColumns: [units.id],
 			name: "tickets_unit_id_fkey"
 		}).onDelete("restrict"),
+	pgPolicy("tickets_admin_delete", { as: "permissive", for: "delete", to: ["public"], using: sql`("current_role"() = 'admin'::user_role)` }),
+	pgPolicy("tickets_dr_insert", { as: "permissive", for: "insert", to: ["public"] }),
+	pgPolicy("tickets_manager_update", { as: "permissive", for: "update", to: ["public"] }),
+	pgPolicy("tickets_read", { as: "permissive", for: "select", to: ["public"] }),
+	pgPolicy("tickets_tenant_insert", { as: "permissive", for: "insert", to: ["public"] }),
 	check("tickets_raiser_identity_check", sql`((raised_by_role = 'tenant'::ticket_raiser) AND (raised_by_dr_id IS NULL)) OR ((raised_by_role = 'dr'::ticket_raiser) AND (raised_by_dr_id IS NOT NULL))`),
 	check("tickets_scope_check", sql`((scope = 'unit'::ticket_scope) AND (unit_id IS NOT NULL) AND (building_id IS NOT NULL)) OR ((scope = 'building'::ticket_scope) AND (building_id IS NOT NULL) AND (unit_id IS NULL)) OR ((scope = 'society'::ticket_scope) AND (unit_id IS NULL) AND (building_id IS NULL))`),
-]);
-
-export const users = pgTable("users", {
-	id: uuid().primaryKey().notNull(),
-	role: userRole().notNull(),
-	username: text(),
-	fullName: text("full_name").notNull(),
-	phone: text(),
-	active: boolean().default(true).notNull(),
-	needsPasswordSet: boolean("needs_password_set").default(true).notNull(),
-	needsProfileConfirm: boolean("needs_profile_confirm").default(true).notNull(),
-	legacyBcryptHash: text("legacy_bcrypt_hash"),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-}, (table) => [
-	index("users_active_idx").using("btree", table.active.asc().nullsLast().op("bool_ops")),
-	index("users_role_idx").using("btree", table.role.asc().nullsLast().op("enum_ops")),
-	uniqueIndex("users_username_lower_idx").using("btree", sql`lower(username)`).where(sql`(username IS NOT NULL)`),
-	foreignKey({
-			columns: [table.id],
-			foreignColumns: [table.id],
-			name: "users_id_fkey"
-		}).onDelete("cascade"),
 ]);
 
 export const drs = pgTable("drs", {
@@ -262,18 +285,35 @@ export const drs = pgTable("drs", {
 			foreignColumns: [users.id],
 			name: "drs_user_id_fkey"
 		}).onDelete("set null"),
+	pgPolicy("drs_admin_write", { as: "permissive", for: "all", to: ["public"], using: sql`("current_role"() = 'admin'::user_role)`, withCheck: sql`("current_role"() = 'admin'::user_role)`  }),
+	pgPolicy("drs_read", { as: "permissive", for: "select", to: ["public"] }),
 ]);
 
-export const monthlyBudgets = pgTable("monthly_budgets", {
+export const managerBuildingAssignments = pgTable("manager_building_assignments", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
-	periodStart: date("period_start").notNull(),
-	category: text().notNull(),
-	amount: numeric({ precision: 12, scale:  2 }).default('0').notNull(),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	managerId: uuid("manager_id").notNull(),
+	buildingId: uuid("building_id").notNull(),
+	assignedAt: timestamp("assigned_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	assignedBy: uuid("assigned_by"),
 }, (table) => [
-	uniqueIndex("monthly_budgets_period_category_idx").using("btree", sql`period_start`, sql`lower(category)`),
-	index("monthly_budgets_period_idx").using("btree", table.periodStart.asc().nullsLast().op("date_ops")),
+	foreignKey({
+			columns: [table.assignedBy],
+			foreignColumns: [users.id],
+			name: "manager_building_assignments_assigned_by_fkey"
+		}),
+	foreignKey({
+			columns: [table.buildingId],
+			foreignColumns: [buildings.id],
+			name: "manager_building_assignments_building_id_fkey"
+		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.managerId],
+			foreignColumns: [managers.id],
+			name: "manager_building_assignments_manager_id_fkey"
+		}).onDelete("cascade"),
+	unique("manager_building_assignments_manager_id_building_id_key").on(table.managerId, table.buildingId),
+	pgPolicy("mba_admin_full", { as: "permissive", for: "all", to: ["public"], using: sql`("current_role"() = 'admin'::user_role)`, withCheck: sql`("current_role"() = 'admin'::user_role)`  }),
+	pgPolicy("mba_manager_read", { as: "permissive", for: "select", to: ["public"] }),
 ]);
 
 export const schemaMigrations = pgTable("schema_migrations", {
@@ -286,6 +326,22 @@ export const arInternalMetadata = pgTable("ar_internal_metadata", {
 	createdAt: timestamp("created_at", { precision: 6, mode: 'string' }).notNull(),
 	updatedAt: timestamp("updated_at", { precision: 6, mode: 'string' }).notNull(),
 });
+
+export const monthlyBudgets = pgTable("monthly_budgets", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	periodStart: date("period_start").notNull(),
+	category: text().notNull(),
+	amount: numeric({ precision: 12, scale:  2 }).default('0').notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	uniqueIndex("monthly_budgets_period_category_idx").using("btree", sql`period_start`, sql`lower(category)`),
+	index("monthly_budgets_period_idx").using("btree", table.periodStart.asc().nullsLast().op("date_ops")),
+	pgPolicy("monthly_budgets_admin_delete", { as: "permissive", for: "delete", to: ["public"], using: sql`("current_role"() = 'admin'::user_role)` }),
+	pgPolicy("monthly_budgets_admin_insert", { as: "permissive", for: "insert", to: ["public"] }),
+	pgPolicy("monthly_budgets_admin_update", { as: "permissive", for: "update", to: ["public"] }),
+	pgPolicy("monthly_budgets_read", { as: "permissive", for: "select", to: ["public"] }),
+]);
 
 export const buildings = pgTable("buildings", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
@@ -309,6 +365,8 @@ export const buildings = pgTable("buildings", {
 			foreignColumns: [societies.id],
 			name: "buildings_society_id_fkey"
 		}).onDelete("restrict"),
+	pgPolicy("buildings_admin_write", { as: "permissive", for: "all", to: ["public"], using: sql`("current_role"() = 'admin'::user_role)`, withCheck: sql`("current_role"() = 'admin'::user_role)`  }),
+	pgPolicy("buildings_read", { as: "permissive", for: "select", to: ["public"] }),
 ]);
 export const tenantCredentials = pgView("tenant_credentials", {	tenantId: uuid("tenant_id"),
 	username: text(),

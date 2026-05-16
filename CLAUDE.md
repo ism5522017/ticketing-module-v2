@@ -93,14 +93,17 @@ Ticketing Module V2/
 ├── .env.local                   # gitignored, real secrets
 ├── src/
 │   ├── app/                     # Next.js App Router
-│   │   ├── (auth)/              # Login, set-password, onboarding (planned)
-│   │   ├── (tenant)/            # Tenant dashboard, tickets (planned)
-│   │   ├── (dr)/                # DR dashboard, raise issue (planned)
-│   │   ├── (manager)/           # Manager directory, requisitions (planned)
-│   │   ├── (admin)/             # Admin dashboard, tickets, budgets, staff (planned)
+│   │   ├── (auth)/              # /login, /onboarding/* — no header
+│   │   ├── (authed)/            # Signed-in shell: header + nav + main
+│   │   │   ├── layout.tsx       # AppHeader + RoleNav + UserMenu wrapper
+│   │   │   ├── actions.ts       # signOut server action
+│   │   │   ├── tenant/          # /tenant/*  — gated to role=tenant by middleware
+│   │   │   ├── dr/              # /dr/*      — gated to role=dr
+│   │   │   ├── manager/         # /manager/* — gated to role=manager
+│   │   │   └── admin/           # /admin/*   — gated to role=admin
 │   │   ├── api/                 # Route handlers (file uploads, webhooks)
 │   │   ├── layout.tsx
-│   │   ├── page.tsx             # Redirects to /login
+│   │   ├── page.tsx             # Redirects to /login (middleware sends signed-in users to dashboard)
 │   │   └── globals.css
 │   ├── components/
 │   │   └── ui/                  # shadcn primitives (button, card, input, label)
@@ -369,7 +372,7 @@ Items marked DONE describe what was already built. Don't re-do them.
 **Required keys:** `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET`, `DATABASE_URL`.
 **Gitignore:** `.env*` blocked, `!.env.example` whitelisted. `.env.local` MUST NOT be committed.
 
-#### 0.6 Base layout + navigation shell — Status: TODO
+#### 0.6 Base layout + navigation shell — Status: DONE
 **What:** Build the global app chrome that wraps every authenticated page.
 **Old app reference:** `../ticketing module/public/index.html` lines 1-100 (the top `<nav>` with logo + sub-text + avatar), `../ticketing module/public/css/app.css` (`.nav-bar`, `.body`).
 **V2 files to create:**
@@ -454,12 +457,12 @@ create unique index buildings_code_upper_idx
 - Column added, unique-when-not-null constraint in place.
 - Nullable initially (1.3 backfills it).
 
-#### 1.3 Backfill `buildings.code` (auto-gen + admin review) — Status: TODO
+#### 1.3 Backfill `buildings.code` (auto-gen + admin review) — Status: CODE READY (awaiting script run + admin review)
 **What:** Generate suggested codes for every building, then surface them in an admin review UI for confirmation/edit before enforcing NOT NULL.
 **V2 files to create:**
 - `scripts/suggest_building_codes.ts` — node script that reads all buildings, computes suggested codes, writes them via service-role client (only if `code IS NULL` so it's idempotent).
-- `src/app/(admin)/buildings/codes/page.tsx` — review UI (server component fetching all buildings, client component for the editable list).
-- `src/app/(admin)/buildings/codes/actions.ts` — Server Action `updateBuildingCode(id, code)`.
+- `src/app/(authed)/admin/buildings/codes/page.tsx` — review UI (server component fetching all buildings, client component for the editable list). URL: `/admin/buildings/codes`.
+- `src/app/(authed)/admin/buildings/codes/actions.ts` — Server Action `updateBuildingCode(id, code)`.
 **Code generation algorithm:**
 1. Drop these words (case-insensitive): "Tower", "Apartment", "Apartments", "Building", "Complex", "Heights", "Residency", "Society", "The", "And", "Of".
 2. Of the remaining tokens, take the first letter of each, uppercase, concat.
@@ -478,7 +481,7 @@ create unique index buildings_code_upper_idx
 - Uniqueness violations are caught and shown inline.
 - After admin confirms all codes, NOT NULL constraint applies cleanly.
 
-#### 1.4 Pre-create `auth.users` for every existing user — Status: TODO
+#### 1.4 Pre-create `auth.users` for every existing user — Status: CODE READY (awaiting script run)
 **What:** Idempotent backfill script that creates a Supabase Auth user for each existing row across `tenants`, `admins`, `managers`, `drs`, plus a matching `public.users` row.
 **V2 files to create:**
 - `scripts/migrate_users.ts` — the one-time script.
@@ -502,7 +505,7 @@ create unique index buildings_code_upper_idx
 - Every `public.users.legacy_bcrypt_hash` matches the source `password_digest`.
 - All `auth.users` rows have `email_confirm = true`.
 
-#### 1.5 Login page — tenant variant (`BUILDING-FLAT`) — Status: TODO
+#### 1.5 Login page — tenant variant (`BUILDING-FLAT`) — Status: DONE (verifies after 1.9)
 **What:** Single-field login form for tenants; no dropdown.
 **Old app reference:** `../ticketing module/public/js/auth.js` lines 46-84 (`doTenantLogin`), `../ticketing module/public/index.html` (`#login-pane-tenant`).
 **V2 files to create:**
@@ -527,7 +530,7 @@ create unique index buildings_code_upper_idx
 - Returning tenant sees password input + signs in successfully.
 - All error messages are generic ("invalid login") — no enumeration of valid building codes.
 
-#### 1.6 Login page — staff variant (username) — Status: TODO
+#### 1.6 Login page — staff variant (username) — Status: DONE (verifies after 1.9)
 **What:** Second tab on the login form for admin/manager/DR; the field accepts a plain username.
 **Old app reference:** `../ticketing module/public/js/auth.js` lines 86-127 (`doLogin`), `Staff::*` username lookup pattern.
 **V2 files:** Same files as 1.5, just the second tab.
@@ -540,7 +543,7 @@ create unique index buildings_code_upper_idx
 - Same first-login redirect logic as tenant.
 - Same generic error messages.
 
-#### 1.7 First-login flow — Status: TODO
+#### 1.7 First-login flow — Status: DONE (verifies after 1.9)
 **What:** After a user successfully proves identity (either via password or first-login token), route through any pending onboarding steps before reaching their dashboard.
 **Old app reference:** `../ticketing module/public/js/auth.js` lines 187-262 (`promptChangePassword`, `submitChangePassword`).
 **V2 files to create:**
@@ -564,7 +567,7 @@ create unique index buildings_code_upper_idx
 - After confirm-profile, they land on their role's dashboard.
 - Both onboarding flags are flipped exactly once per user.
 
-#### 1.8 Transparent BCrypt → Supabase Auth rehash — Status: TODO
+#### 1.8 Transparent BCrypt → Supabase Auth rehash — Status: DONE
 **What:** Existing users with BCrypt password digests should be able to sign in with their old password on V2 — without seeing a forced reset.
 **Old app reference:** `../ticketing module/app/services/auth_service.rb`, `password_digest` columns on all four role tables.
 **V2 files to create:**
@@ -589,7 +592,7 @@ create unique index buildings_code_upper_idx
 - Subsequent logins use only Supabase Auth (no BCrypt fallback path).
 - Wrong password → generic failure, no info leak.
 
-#### 1.9 Middleware: session refresh + role gate + first-login gate — Status: TODO
+#### 1.9 Middleware: session refresh + role gate + first-login gate — Status: DONE
 **What:** A single Next.js middleware that runs on every request and enforces: session validity, role-based route protection, and first-login redirects.
 **V2 files to create:**
 - `src/middleware.ts`.
@@ -615,7 +618,7 @@ create unique index buildings_code_upper_idx
 - An unauthenticated user hitting any protected route is redirected to `/login`.
 - A user with `needs_password_set = true` cannot reach any dashboard until they complete onboarding.
 
-#### 1.10 RLS policies — Status: TODO
+#### 1.10 RLS policies — Status: MIGRATION READY (awaiting application)
 **What:** Postgres Row-Level Security policies on every public table so the DB itself enforces who can read/write what — even if our Next.js code has a bug.
 **SQL migration file:** `supabase/migrations/20260514000010_rls_policies.sql` (after 1.1-1.4 are applied).
 **Policy enable:**
@@ -680,7 +683,7 @@ create policy tickets_manager_update on public.tickets for update using (
 
 ### Phase 2 — Tenant flows
 
-#### 2.1 Tenant dashboard — Status: TODO
+#### 2.1 Tenant dashboard — Status: DONE
 **What:** Landing page after tenant login. Shows greeting, profile card, ticket list.
 **Old app reference:** `../ticketing module/public/js/dashboard.js`, `../ticketing module/public/js/tickets.js` (renderMyTickets), `../ticketing module/public/index.html` (`#page-dashboard`).
 **V2 files to create:**
@@ -706,7 +709,7 @@ create policy tickets_manager_update on public.tickets for update using (
 - Ticket list shows correct chronological order.
 - No triage data in DOM (urgency/triage_reason absent).
 
-#### 2.2 Edit tenant profile — Status: TODO
+#### 2.2 Edit tenant profile — Status: DONE
 **What:** Inline edit of location/wing/flat from the dashboard profile card. Server reassigns the tenant to a different unit (find-or-create) if those fields change.
 **Old app reference:** `../ticketing module/app/services/tenant_service.rb` (`update_tenant_fields`), `../ticketing module/app/models/unit.rb` (`find_or_create_for`), `../ticketing module/public/js/dashboard.js` (`saveEdit`).
 **V2 files:**
@@ -729,7 +732,7 @@ create policy tickets_manager_update on public.tickets for update using (
 - All four columns stay readable in `public.tenants` and join correctly.
 - The card refreshes with the new values without a hard reload.
 
-#### 2.3 Submit new ticket — Status: TODO
+#### 2.3 Submit new ticket — Status: DONE
 **What:** Form that lets a tenant raise a new ticket. Runs triage server-side, persists with attachments, shows confirmation.
 **Old app reference:** `../ticketing module/app/controllers/tickets_controller.rb#create`, `../ticketing module/app/services/ticket_service.rb#create_from_tenant`, `../ticketing module/public/js/tickets.js#submitTicket`.
 **V2 files to create:**
@@ -767,7 +770,7 @@ create policy tickets_manager_update on public.tickets for update using (
 - Invalid file types are rejected with a clear error.
 - The new ticket appears on the dashboard immediately.
 
-#### 2.4 Attachment upload to Supabase Storage — Status: TODO
+#### 2.4 Attachment upload to Supabase Storage — Status: DONE
 **What:** Reusable upload helper used by 2.3, requisition invoices (4.2), proof photos (4.4).
 **Old app reference:** `../ticketing module/app/services/attachment_upload_service.rb`, `../ticketing module/app/services/storage_service.rb`.
 **V2 file to create:**
@@ -794,7 +797,7 @@ export async function uploadAttachment(file: File): Promise<{ id: string, name: 
 - Path collisions don't happen due to UUID.
 - The returned `id` is what Phase 7.1 uses to serve the bytes back.
 
-#### 2.5 Ticket detail view (tenant) — Status: TODO
+#### 2.5 Ticket detail view (tenant) — Status: DONE
 **What:** Click-through page from a ticket row showing the full ticket data — without any triage/urgency info.
 **V2 files:**
 - `src/app/(authed)/tenant/tickets/[id]/page.tsx`.
@@ -807,7 +810,7 @@ export async function uploadAttachment(file: File): Promise<{ id: string, name: 
 - RLS blocks a tenant from viewing another tenant's ticket detail.
 - No urgency in the DOM (inspect-source check).
 
-#### 2.6 Change password page — Status: TODO
+#### 2.6 Change password page — Status: DONE
 **What:** Lets a signed-in user change their password from the user menu.
 **Old app reference:** `../ticketing module/app/controllers/auth_controller.rb#change_password`, `../ticketing module/public/js/auth.js` (`submitChangePassword`).
 **V2 files:**
@@ -827,7 +830,7 @@ export async function uploadAttachment(file: File): Promise<{ id: string, name: 
 
 ### Phase 3 — DR flows
 
-#### 3.1 DR dashboard — Status: TODO
+#### 3.1 DR dashboard — Status: DONE
 **What:** Building overview for the DR — KPI stats + urgency breakdown + searchable ticket list (own building's tickets plus society-scope tickets the DR raised).
 **Old app reference:** `../ticketing module/app/controllers/drs_controller.rb#tickets, #stats`, `../ticketing module/app/services/ticket_service.rb` (`read_tickets_for_dr`, `stats_for_building`), `../ticketing module/public/js/dr.js`.
 **V2 files to create:**
@@ -849,7 +852,7 @@ export async function uploadAttachment(file: File): Promise<{ id: string, name: 
 - Search filters client-side without re-fetch.
 - Society tickets the DR raised appear at the top alongside building tickets.
 
-#### 3.2 DR raise issue — Status: TODO
+#### 3.2 DR raise issue — Status: DONE
 **What:** Form for a DR to raise a new ticket. Scope selector: building or society.
 **Old app reference:** `../ticketing module/app/controllers/drs_controller.rb#raise_ticket`, `../ticketing module/app/services/ticket_service.rb#create_from_dr`, `../ticketing module/public/js/dr.js` (`submitDrTicket`).
 **V2 files to create:**
@@ -879,7 +882,7 @@ export async function uploadAttachment(file: File): Promise<{ id: string, name: 
 - Society-scope ticket has both `unit_id = null` and `building_id = null` (but `society_id` set).
 - Attachments uploaded successfully.
 
-#### 3.3 DR stats endpoint logic — Status: TODO
+#### 3.3 DR stats endpoint logic — Status: DONE
 **What:** The server-side computation behind 3.1's KPI row. Treat as a reusable helper.
 **Old app reference:** `../ticketing module/app/services/ticket_service.rb#stats_for_building`.
 **V2 file:**
@@ -908,7 +911,7 @@ type DrStats = {
 
 ### Phase 4 — Manager flows
 
-#### 4.1 Manager directory — Status: TODO
+#### 4.1 Manager directory — Status: DONE
 **What:** All-tickets directory grouped by building, with status filters, search, in-row status/urgency controls, and inline requisition cards.
 **Old app reference:** `../ticketing module/public/js/manager.js` (`renderManagerTickets`, `applyFilterAndRender`, `renderManagerTicketCard`).
 **V2 files to create:**
@@ -937,7 +940,7 @@ type DrStats = {
 - Optimistic updates feel instant.
 - Override is blocked (with alert) if a requisition already exists.
 
-#### 4.2 Requisition create form — Status: TODO
+#### 4.2 Requisition create form — Status: DONE
 **What:** A multi-section form a manager submits for a chosen ticket. Calculates est_cost from line items in real time.
 **Old app reference:** `../ticketing module/app/controllers/requisitions_controller.rb#create`, `../ticketing module/app/services/requisition_service.rb#create_requisition`, `../ticketing module/public/js/manager.js` (`openRequisition`, `addFinanceRow`, `calcFinanceTable`, `submitRequisition`).
 **V2 files to create:**
@@ -964,14 +967,14 @@ type DrStats = {
 - One requisition per ticket (unique constraint on `requisitions.issue_id` already enforced).
 - Returning to the directory shows the new requisition card.
 
-#### 4.3 Requisition list (own created) — Status: TODO
+#### 4.3 Requisition list (own created) — Status: DONE
 **What:** A simple page showing requisitions the manager has submitted, filterable by admin approval status.
 **Note:** This is mostly covered by 4.1's directory (manager sees all tickets with their requisition cards inline). If a standalone "Requisitions only" page is desired, list them in a flat sortable table with columns: ticket_id, est_cost, admin_approval, submitted_at, vendor_name. Linking each row back to the directory ticket card is sufficient — no separate detail page needed.
 **V2 files (optional):**
 - `src/app/(authed)/manager/requisitions/page.tsx`.
 **Acceptance criteria:** Each row links back to its ticket card in the directory.
 
-#### 4.4 Vendor confirmation step — Status: TODO
+#### 4.4 Vendor confirmation step — Status: DONE
 **What:** After admin approves a requisition, the manager uploads a proof photo and marks the vendor work as confirmed. This unlocks ticket closure.
 **Old app reference:** `../ticketing module/app/controllers/requisitions_controller.rb#confirm_vendor`, `../ticketing module/app/services/requisition_service.rb#confirm_vendor`, `../ticketing module/public/js/manager.js` (`vendorConfirmHtml`, `handleProofFile`, `confirmVendor`).
 **V2 files:**
@@ -998,7 +1001,7 @@ type DrStats = {
 
 ### Phase 5 — Admin flows
 
-#### 5.1 Admin dashboard — Status: TODO
+#### 5.1 Admin dashboard — Status: DONE
 **What:** High-level KPIs + four charts + financial overview + budget snapshot + building heatmap.
 **Old app reference:** `../ticketing module/public/js/admin.js`, `../ticketing module/public/js/admin_charts.js` (all of it).
 **V2 files to create:**
@@ -1021,7 +1024,7 @@ type DrStats = {
 - Numbers in financial overview match a manual SQL sum.
 - Heatmap shows buildings sorted by ticket count desc.
 
-#### 5.2 Admin ticket directory — Status: TODO
+#### 5.2 Admin ticket directory — Status: DONE
 **What:** Admin's view of every ticket with a 4-stage progress stepper, requisition section, approve/reject controls.
 **Old app reference:** `../ticketing module/public/js/admin_tickets.js` (`renderAdminTickets`, `renderAdminTicketCard`).
 **V2 files to create:**
@@ -1049,7 +1052,7 @@ type DrStats = {
 - Filter chips work correctly.
 - Cards visually match the old app's layout.
 
-#### 5.3 Admin requisition approve/reject — Status: TODO
+#### 5.3 Admin requisition approve/reject — Status: DONE
 **What:** Inline approval controls inside each pending requisition card on the admin ticket directory.
 **Old app reference:** `../ticketing module/app/controllers/requisitions_controller.rb#approve, #reject`, `../ticketing module/public/js/admin_tickets.js` (`approveRequisition`, `rejectRequisition`).
 **V2 files:**
@@ -1072,7 +1075,7 @@ type DrStats = {
 - Remarks persist and display correctly afterward.
 - Approved requisitions unlock vendor confirmation for the manager (4.4).
 
-#### 5.4 Monthly budgets editor — Status: TODO
+#### 5.4 Monthly budgets editor — Status: DONE
 **What:** Admin sets per-category and total monthly budgets. Shows real-time spend vs budget bars.
 **Old app reference:** `../ticketing module/app/controllers/budgets_controller.rb`, `../ticketing module/app/services/budget_service.rb`, `../ticketing module/public/js/admin_budgets.js` (all of it).
 **V2 files to create:**
@@ -1111,7 +1114,7 @@ Common area maintenance, Security / access, Society query, Other
 - Spend reflects approved requisitions accurately.
 - Over-budget categories show red.
 
-#### 5.5 Building heatmap — Status: TODO
+#### 5.5 Building heatmap — Status: DONE
 **What:** Horizontal stacked-bar chart, one row per building, segmented by urgency.
 **Old app reference:** `../ticketing module/public/js/admin_charts.js` (`renderBuildingHeatmap`).
 **V2 file:**
@@ -1130,7 +1133,7 @@ Common area maintenance, Security / access, Society query, Other
 - Color mapping matches the old app's palette.
 - Tooltip on hover (Recharts default) or a "show details" affordance is optional.
 
-#### 5.6 Financial overview cards — Status: TODO
+#### 5.6 Financial overview cards — Status: DONE
 **What:** Already specified in 5.1 — 3 KPI cards.
 **Notes for implementer:** Format Indian rupees with `.toLocaleString('en-IN')`. Place these three cards above the charts on the dashboard.
 
@@ -1140,7 +1143,7 @@ Common area maintenance, Security / access, Society query, Other
 
 > Every page in this phase requires `users.role = 'admin'`. Middleware enforces this; Server Actions also re-check defensively.
 
-#### 6.1 Admins management — Status: TODO
+#### 6.1 Admins management — Status: DONE
 **What:** CRUD for admin accounts. Soft-disable on delete (no hard delete). Guards: can't disable self; must keep ≥1 active admin.
 **Old app reference:** `../ticketing module/app/controllers/staff/admins_controller.rb`, `../ticketing module/app/controllers/staff/base_controller.rb` (`guard_last_active_admin!`).
 **V2 files to create:**
@@ -1160,13 +1163,13 @@ Common area maintenance, Security / access, Society query, Other
 - Last-active-admin guard works.
 - After password reset, that admin lands on /onboarding/set-password at next login.
 
-#### 6.2 Managers management — Status: TODO
+#### 6.2 Managers management — Status: DONE
 **What:** Same shape as 6.1 but without the last-active guard (managers don't have that constraint).
 **Old app reference:** `../ticketing module/app/controllers/staff/managers_controller.rb`.
 **V2 files:** mirror 6.1 under `src/app/(authed)/admin/staff/managers/`.
 **Notes:** Same default password / must_change_password pattern. No special guards.
 
-#### 6.3 DRs management (residency check) — Status: TODO
+#### 6.3 DRs management (residency check) — Status: DONE
 **What:** Create DR by selecting a tenant + the building they're a resident of. Model-level check ensures the tenant's unit is in that building.
 **Old app reference:** `../ticketing module/app/controllers/staff/drs_controller.rb`, `../ticketing module/app/models/dr.rb` (`tenant_lives_in_building`).
 **V2 files to create:**
@@ -1188,7 +1191,7 @@ Common area maintenance, Security / access, Society query, Other
 - Residency violation rejected with a clear error.
 - Retired DRs visible in a "Past DRs" section but not in active rotation.
 
-#### 6.4 Tenants management — Status: TODO
+#### 6.4 Tenants management — Status: DONE
 **What:** Most complex CRUD page. Server-side filtering (by building), search (by name/email/flat), pagination (50/page, max 200).
 **Old app reference:** `../ticketing module/app/controllers/staff/tenants_controller.rb` (full file).
 **V2 files to create:**
@@ -1214,7 +1217,7 @@ Common area maintenance, Security / access, Society query, Other
 - Pagination is correct (total count matches; offset/limit applied).
 - All actions persist correctly.
 
-#### 6.5 Units read-only list — Status: TODO
+#### 6.5 Units read-only list — Status: DONE
 **What:** Lookup utility for admin forms — used by tenant create (for the unit dropdown) and DR create (to confirm residency).
 **Old app reference:** `../ticketing module/app/controllers/staff/units_controller.rb`.
 **V2 files:**
@@ -1223,7 +1226,7 @@ Common area maintenance, Security / access, Society query, Other
 **Order:** `building.name ASC, units.wing ASC NULLS FIRST, units.flat ASC`.
 **Acceptance criteria:** filter by `building_id` works.
 
-#### 6.6 Tenant credentials lookup view — Status: TODO
+#### 6.6 Tenant credentials lookup view — Status: DONE
 **What:** Admin-only view to look up a tenant's BUILDING-FLAT login id and whether they've changed their password.
 **Old app reference:** `../ticketing module/supabase/migrations/20260512000002_tenant_credentials_view.sql` (the SQL view).
 **V2 files:**
@@ -1260,7 +1263,7 @@ Common area maintenance, Security / access, Society query, Other
 - Unauthenticated request → 401 (via middleware).
 - Wrong/missing path → 404.
 
-#### 7.2 Buildings list endpoint (cached) — Status: TODO
+#### 7.2 Buildings list endpoint (cached) — Status: DONE
 **What:** Cached buildings list for any UI dropdown (admin forms, etc.). The login flow no longer needs it since tenants type a code directly.
 **Old app reference:** `../ticketing module/app/controllers/buildings_controller.rb`.
 **V2 files:**
@@ -1314,7 +1317,7 @@ for each row execute function public.set_ticket_reference_code();
 ```
 **Acceptance criteria:** insert a test ticket without specifying `reference_code` → row comes back with `TK-XXXXX`.
 
-#### 7.5 Manager-building assignments table — Status: TODO
+#### 7.5 Manager-building assignments table — Status: MIGRATION READY (awaiting application)
 **What:** Schema-only table that future-proofs multi-society scoping for managers. Not wired into any UI in MVP — managers see all tickets per `tickets_manager_update` RLS policy.
 **SQL migration file:** `supabase/migrations/20260514000020_manager_building_assignments.sql`.
 **Migration content:**
@@ -1487,6 +1490,137 @@ requires user approval and a Changelog entry.
 
 Append every meaningful advancement here. Newest at the top. Date format:
 ISO `YYYY-MM-DD`. Keep entries factual and short — link to commits when relevant.
+
+### 2026-05-15 — UX Upgrades (Skeletons & Optimistic UI)
+- **Skeleton Screens**: Added `loading.tsx` for the Tenant Dashboard to stream the layout shell while Drizzle queries tickets.
+- **Optimistic UI**: Implemented React 19 `useOptimistic` hooks for inline mutations (Manager urgency overrides, Tenant profile edits) to make UI updates feel instantaneous without heavy animation libraries.
+
+### 2026-05-14 — Phase 6 staff CRUD + Phase 7.2/7.5 shipped
+- **Shared mutation helpers** (`src/lib/admin/staff-mutations.ts`). `createStaffMember({ role: 'admin' | 'manager' })` is the single entry point for provisioning office staff — service-role `auth.admin.createUser` (with `synthetic_email: true` metadata, email `{username}@staff.local` matching Phase 1.4 convention), then a Drizzle transaction that inserts `public.users` (`needs_password_set = true` so middleware bounces them through `/onboarding/set-password` on first sign-in) and the role row in lockstep. If the transaction throws, the auth user is deleted (best-effort) so a retry doesn't trip on the email collision. The legacy `password_digest` column on `admins`/`managers`/`drs` gets an empty string — it's not used in V2 (Supabase Auth owns the password) but the NOT NULL constraint survives from the Rails era. `hasAnotherActiveAdmin(excludeId)` powers the last-active-admin guard; `resetStaffPassword` flips the auth password back to `1234` + sets `needs_password_set` so onboarding picks them up; `setStaffActive` toggles both `users.active` and the role table together so middleware's `users.active` gate stays consistent.
+- **6.1 Admins** at `/admin/staff/admins`. List + inline-edit rows (name, status) + `+ Add admin` collapsible form + Reset / Disable / Re-enable buttons per row. Two guards in `disableAdminAction` (not the shared helper, because they're admin-specific): (a) `profile.adminId === input.roleId` is rejected with "You cannot disable your own admin account"; (b) `hasAnotherActiveAdmin` must return true. The "(you)" badge replaces action buttons for the signed-in admin's own row. Temp-password toast surfaces the literal `1234` so the admin can text it to the new staff member.
+- **6.2 Managers** at `/admin/staff/managers`. Identical shape to 6.1 minus the last-active guard — managers have no system-wide invariant to protect. Same row component pattern; reused `setStaffActive` directly.
+- **6.3 DRs** at `/admin/staff/drs` with the residency check. Create form has a building → tenant cascade: picking a building calls `listTenantsForBuildingAction(buildingId)` which returns only active tenants of that building (joining `tenants → units` by `building_id`). On submit, the server action does three defense-in-depth checks: (a) tenant's unit is actually in the chosen building (re-runs the same join even though UI filters); (b) username unique across DRs; (c) no other active DR exists for that building (the partial unique index `drs_active_building_idx` would also catch it, but failing here gives a friendlier message). DR's `full_name` is sourced from the linked tenant — matches the migrate-users convention. Retire is destructive (`active = false, ended_at = now()` + `users.active = false`) — a `confirm()` prompt blocks accidents. Active and retired DRs render in separate sections; retired DRs show no action buttons.
+- **6.4 Tenants** at `/admin/staff/tenants` — the biggest screen. Server-side filtering and pagination via searchParams (`building_id`, `q`, `active`, `page`, `per_page`, defaults 50/page, max 200). `listAdminTenants()` builds the `where` clause from conditions array, joins units + buildings + users in one query, runs a parallel `count(*)` so the total + Page X of Y footer is honest. `<FilterBar>` is a client component that mutates the URL via `router.push("?…")` and `useTransition` so the list shows a pending state during the round trip. `<TenantRow>` inline-edits name/email/phone/contact/unit; clicking Edit lazy-loads `listUnitsForBuildingAction(buildingId)` for the unit dropdown — units in other buildings aren't shown (reassignment to a different building isn't supported from this screen — admin can do it via the Edit dialog only after `tenants.unit_id` already points at the right building). Phone normalization mirrors the old Rails `TenantsController#normalize_phone` (strip non-digits → drop "91" CC if 12 digits → last 10). Email synth on create falls back to `{flat-slug}.{building-slug}@deh.local` when admin leaves email blank — slug strips non-alphanumerics, trims dashes, caps at 32 chars to keep the local part reasonable. Update path: if `email` changes AND the tenant has a linked `user_id`, also push the new email to `auth.users` via service-role `updateUserById` — best-effort, swallows errors (most likely cause is a duplicate email collision, which leaves the `tenants.email` column already committed; admin can retry after fixing). Reset is a direct path (not `resetStaffPassword`) because that helper resolves `user_id` via role tables and tenants have their own.
+- **6.5 Units helper** (`src/lib/admin/units-list.ts`). `listUnits(buildingId?)` joins units + buildings, returns `{ id, buildingId, buildingName, wing, flat, floor, unitType, residentName }` ordered building name → wing → flat. Not exposed at a route yet — `listUnitsForBuildingAction` in the tenants page uses it indirectly. Standalone admin units page can be added trivially when needed.
+- **6.6 Tenant credentials** at `/admin/staff/tenant-credentials`. Reads from `tenants` joined to `buildings` + `users`, computes `loginId = {CODE}-{flat}` per row, reuses the same `<FilterBar>` from 6.4 (since the filter shape is the same: building + search). Password status enum: `Awaiting first sign-in` (users.needs_password_set is true), `Default` (tenants.must_change_password is true), `Custom` (neither — they've changed their password at least once). The view's `tenant_credentials` SQL is preserved (Drizzle still introspects it) but the page bypasses it because we want the live `users.needs_password_set` signal which the view doesn't expose.
+- **7.2 Cached buildings list** (`src/lib/buildings/list.ts`). `unstable_cache`-wrapped `listBuildings()` returns `[{ id, name, code, locality, city }]` with `revalidate: 300` + `tags: ['buildings']`. Used by every staff CRUD with a building dropdown (DR create, tenant create, tenant credentials filter). `revalidateBuildings()` bumps the cache; Next 16's `revalidateTag` requires an explicit cache profile string, so it's passed as `"default"` (matches the framework's standard 5-min revalidation). Admin code-edit pages can call this to bust the cache after a rename.
+- **7.5 manager_building_assignments table** (`supabase/migrations/20260514000020_manager_building_assignments.sql`). Schema-only — table + 2 RLS policies (`mba_admin_full` for write, `mba_manager_read` for read). Not wired into any UI; future-proofs swapping the manager → all-tickets policy for a building-scoped one without another migration. Awaiting application via Supabase SQL Editor.
+- **RoleNav** expanded: admin nav now carries Admins / Managers / DRs / Tenants / Login IDs links alongside the existing entries. The nav row will overflow on smaller laptop widths — future polish, but functional today.
+- **RLS interaction**: every new Phase 6 mutation runs through `db` (Drizzle over `DATABASE_URL`), which connects as the pooler postgres role and bypasses RLS — same pattern Phase 5 admin actions use. The anon-key + JWT path remains gated by the 1.10 policies, so adding admin tools doesn't widen the RLS surface.
+- **Known gap**: Phase 6 ships before any of the 1.10 RLS policies are actually applied to the live DB. None of the new pages depend on RLS being on or off — they all use service-role/pooler — but verifying tenant ↔ admin separation end-to-end (Phase 8.1 smoke test) still wants 1.10 in place first.
+- `tsc --noEmit` clean. `npm run build` clean — new routes: `/admin/staff/admins`, `/admin/staff/managers`, `/admin/staff/drs`, `/admin/staff/tenants`, `/admin/staff/tenant-credentials`.
+
+### 2026-05-14 — Phase 5 admin flows shipped (5.1–5.6)
+- **Recharts** added to dependencies (per CLAUDE.md §5.1's choice over Chart.js — typed React-native API, smaller mental model than wrapping the old `<canvas>` Chart.js calls).
+- **Admin profile + data lib** (`src/lib/admin/{admin-profile,directory,budgets,types}.ts`). `getAdminProfileFromSession()` mirrors the manager/DR helpers — joins users → admins, returns `{ userId, adminId, fullName }` or null when caller isn't an active admin. `listAdminTickets()` returns every ticket with its joined building/unit + bundled requisition; same two-round-trip pattern as `listManagerTickets` (no left-join row explosion). `getBudgetSummary(period?)` is the 1:1 V2 port of `BudgetService.summary_for_month` — budget rows in `monthly_budgets` for the period + approved-requisition spend grouped by `tickets.type`, joined into one shape. Spend bucketed by ticket `submitted_at` (not requisition approval date), matching the admin's mental model.
+- **5.1 Dashboard** at `/admin/dashboard` — KPI row (Total/Open/In Progress/Resolved), 3 financial overview cards, budget snapshot (top-6 categories by spend), building heatmap, and four Recharts: urgency donut (active only), tickets-over-time stacked line, issue-type horizontal bar, resolved-cumulative line. Charts live in a single `charts.tsx` client module so the dashboard server component just hands tickets in once and Recharts handles all the per-chart memoization.
+- **5.5 Building heatmap** (`building-heatmap.tsx`): pure JSX horizontal stacked bars (no Recharts — Recharts' stacked-bar API is awkward for max-normalized rows). Groups by `tickets.buildingName` (or "Society-level" for scope=society), sorts by total desc, max-normalizes so longest row fills the track, hides count text on segments < 12% wide. Color palette matches old app's `#d62828/#f77f00/#fcbf49/#adb5bd`.
+- **5.6 Financial overview** (`financial-overview.tsx`): 3 KPI cards — Total Approved, This Month, Pending Cost. Uses `req.createdAt` to bucket "this month" (admin requisitions don't have an approval timestamp in the schema yet; createdAt is the closest signal and matches the old JS behavior).
+- **5.2 Admin tickets** at `/admin/tickets` — filter chips (All / Open / In Progress / Resolved / Req Pending / Req Approved), debounced search via `useDeferredValue`, grouped by building, urgency-sorted within. Each card carries the 4-stage progress stepper (Review → Approved → In Progress → Resolved). Stepper logic ported per CLAUDE.md §5.2: stays at Review if requisition rejected; advances to Approved when requisition approved + status still open; In Progress / Resolved follow `tickets.status`. Stepper is a pure SVG component — no client-side state.
+- **5.3 Approve/Reject** (`requisition-block.tsx`, `actions.ts`). Inline approve/reject buttons only render when `req.adminApproval === 'Pending'`. `approveRequisition(referenceCode, remarks)` and `rejectRequisition(...)` share a private helper that resolves TK-id → ticket id → requisition id, then updates `admin_approval` + `admin_remarks` and revalidates both `/admin/tickets` and `/admin/dashboard` (so the dashboard KPIs/snapshot reflect the change). `useTransition` keeps the buttons disabled during the round trip.
+- **5.4 Budgets** at `/admin/budgets` — editable per-category table. `BudgetEditor` merges the canonical `BUDGET_CATEGORIES` list with any extra categories the server returned (e.g., spend against a deleted issue type still shows up so admin can zero a stale budget). Total row sits in its own card above the table with a `<BudgetBar>` showing overall consumption. Inline `<SaveRow>` writes via the `saveBudget(category, amount, period)` server action; "total" is a magic category string that maps to `monthly_budgets.category = 'total'`, matching the Rails `BudgetService::TOTAL_KEY`.
+- **`<BudgetBar>` shared** at `src/components/shared/budget-bar.tsx` — used by both the dashboard snapshot and the budgets page editor. Color shifts: green → orange (>80%) → red (over-budget). Overbudget callout below the bar.
+- **RoleNav** updated to expose the three new admin links (Tickets, Budgets) alongside the existing Dashboard / Building codes entries.
+- **Known limitation**: Recharts is rendered client-side, so the four charts hydrate after the page paints. Server-rendered KPI cards / heatmap / financial overview show immediately. This is the deliberate fast-first-paint pattern from the old app, just enforced by RSC boundaries instead of an `ensureChartJsLoaded()` trick.
+- `tsc --noEmit` clean; `npm run build` clean. New routes: `/admin/dashboard`, `/admin/tickets`, `/admin/budgets`. (`/admin/buildings/codes` pre-existing.)
+
+### 2026-05-14 — Phase 4 manager flows shipped (4.1–4.4)
+- **4.1 Manager directory** at `/manager/dashboard` (chose this path over CLAUDE.md's `/manager/directory` to match the existing `RoleNav` link and the DR/admin pattern — same page, different URL). Server component fetches all tickets + their requisitions in two round trips via `listManagerTickets` and computes KPIs via `computeManagerStats`. KPI row (Pending / Awaiting Admin / Approved / Rejected). Client `<DirectoryShell>` handles the five filter chips and the debounced search (`useDeferredValue`) over `(tenantName | buildingName | type | referenceCode)`. Grouping is by `buildings.name` joined from `tickets.building_id` — not by splitting a location string the way the old `manager.js` did, since V2 has typed data. Society-scope tickets bucket under "Society-level". Within each group, tickets sort by urgency rank (critical → low).
+- **4.1 Inline status + urgency override** (`ticket-card.tsx`). Each card has a status `<select>` (Open / In Progress / Resolved) and a urgency override `<select>` that only renders when no requisition exists. `useTransition` for optimistic updates: set local state immediately, call the action, roll back on `{ ok: false }`. Server action `updateTicketStatus` flips `tickets.status` and writes `resolved_at = now()` on resolve / `null` otherwise. `overrideUrgency` re-checks the no-requisition rule server-side (defense-in-depth — the UI hides the dropdown but a stale page could still race). Both actions verify the caller is a manager via `getManagerProfileFromSession()`.
+- **4.2 Requisition create** at `/manager/tickets/[id]/requisition/new` (`requisition-form.tsx` + `actions.ts#createRequisition`). The `[id]` segment is the human `TK-` reference code, decoded on the server before the lookup. Cost-breakdown table sums `est_cost` in real time via `useMemo`; in-house toggle hides the vendor/finance/invoices sections and zeros the cost. On submit, server action uploads invoices via the shared `uploadAttachment` helper, validates vendor + non-zero cost + non-empty breakdown when not in-house, then inserts the requisition. Cost breakdown serializes line-by-line as `"{description}: ₹{amount}\n"` matching the old Rails string format so the admin remarks block displays cleanly.
+- **4.3 Flat requisitions list** at `/manager/requisitions` — server-rendered table with TK link back to the dashboard, vendor / in-house mode, est cost, admin approval pill, and a "✓ Confirmed" pill when the vendor work is signed off. Not the primary screen (4.1 is) but keeps the role-nav entry honest.
+- **4.4 Vendor confirmation** (`<VendorConfirmBlock>` inside `ticket-card.tsx`, `actions.ts#confirmVendor`). Only renders when `req.admin_approval === 'Approved' && !req.vendor_confirmed`. Image-only file input with `URL.createObjectURL` preview; Confirm button disabled until a file is picked. Server action uploads the proof, validates approval state, then writes `vendor_confirmed = true, vendor_confirmed_at = now(), vendor_confirmed_by = profile.fullName, vendor_proof = [proof]`. Confirmed state shows a green ✓ badge with confirmer + timestamp + a thumbnail via the shared `<AttachmentGallery>`.
+- **Manager profile helper** (`src/lib/manager/manager-profile.ts`): `getManagerProfileFromSession()` joins users → managers and returns `{ userId, managerId, fullName }` or null when the caller isn't an active manager (users.active AND managers.active). Mirrors the DR profile helper.
+- **Types split** (`src/lib/manager/types.ts`): pulled `ManagerTicket`, `ManagerRequisition`, `ManagerFilter`, `ManagerStats`, and the pure `urgencyRank()` helper out of `directory.ts` into a client-safe module. Necessary because `directory-shell.tsx` is a client component and it imports `urgencyRank` as a value; if it had stayed in `directory.ts` (which imports `db` + `drizzle-orm`), the bundler would try to ship `postgres` to the browser and the build fails on `node:tls`. `directory.ts` keeps `import "server-only"` and re-exports types from the shared module.
+- **Action import path**: the requisition form lives at `/manager/tickets/[id]/requisition/new/requisition-form.tsx` but calls into `/manager/dashboard/actions.ts#createRequisition`. The dashboard's `actions.ts` is the single home for every manager mutation (status, urgency, requisition create, vendor confirm) so `revalidatePath('/manager/dashboard')` is the only invalidation needed — no duplicate action files.
+- `tsc --noEmit` clean. `npm run build` clean — new routes: `/manager/dashboard`, `/manager/requisitions`, `/manager/tickets/[id]/requisition/new`. Next.js 16 surfaced a `middleware → proxy` deprecation warning (pre-existing, unrelated to Phase 4).
+
+### 2026-05-14 — Shared-flat handling + expanded onboarding
+- **Migrate script: distinct identities for shared flats** (`scripts/migrate_users.ts`). Four `(building_code, flat)` slots in the live data have two active tenants each (HM1-504, HM1-603, SA-516/1D-SBP1, SA-518/1D-SBP1 — different families, joint occupancy). The old script collided because both tenants in a slot synthesized to the same `code-flat@tenants.local`. The new logic: at the start of `migrateTenants`, snapshot every `auth.users.id` already claimed by some tenant row, then process pending tenants in `created_at` order. For each, try the bare `code-flat@tenants.local` first; if it maps to a claimed auth id, fall back to `code-flat-{tenant.id[0:8]}@tenants.local`. Also normalize messy flat strings (e.g. `1905 / 1D-SBP1` → `1905-1d-sbp1`) so they're valid email locals. As a defense-in-depth check, the loop refuses to commit if the resolved auth user id is already claimed — better to fail loudly than silently rebind a tenant.
+- **Live run completed**: all 99 tenants, 1 admin, 1 manager, 1 DR now have `user_id`. 8 tenants in the 4 shared flats got suffixed emails — both occupants of each flat have independent auth identities, independent passwords, independent profiles. The oldest tenant in each slot keeps the bare `BUILDING-FLAT` form.
+- **Confirm-profile expanded** (`src/app/(auth)/onboarding/confirm-profile/{page,confirm-profile-form}.tsx`, `src/app/(auth)/onboarding/actions.ts`). The first-login profile screen now collects **phone (required, 10-digit normalized), email (required, real), full name (verify), and — for tenants — location + wing + flat (verify, editable)**. Submit path: validates → for tenants, runs the same find-or-create society/building/unit logic the dashboard uses and reassigns `tenants.unit_id`, plus persists `tenants.email` and `tenants.phone`; then updates `public.users.full_name + phone + needs_profile_confirm = false`; then `supabaseAdmin.auth.admin.updateUserById` to swap the synthetic email for the real one (flipping `user_metadata.synthetic_email = false`, and for tenants also `location_edited = true`). Conflicting real emails fail with "That email is already linked to another account."
+- **Phone normalization**: ported from old Rails `tenants_controller#normalize_phone` — strip non-digits, drop a leading `91` country code, keep the last 10 digits.
+- **Shared lib extraction** (`src/lib/tenants/ensure-unit.ts`): `ensureDefaultSociety`, `ensureBuilding`, `ensureUnit`, `parseLocation`. Pulled out of `tenant/dashboard/actions.ts` (which now imports them) so the onboarding action can reuse the exact same find-or-create chain — keeps the unit-uniqueness invariant `lower(coalesce(wing,'')) + lower(coalesce(flat,''))` in one place.
+- **Open downstream concern**: the tenant login lookup `where upper(b.code) = :code and lower(un.flat) = lower(:flat)` returns multiple rows for shared-flat slots. Right now `resolveTenantLogin` picks the first row only — a tenant in a shared flat may not be able to log in as themselves yet. Need to add a picker step (or use email disambiguator at login) before exposing this to those 8 tenants. Not blocking other phases.
+- `tsc --noEmit` clean; `npm run build` clean.
+
+### 2026-05-14 — Phase 3 DR flows shipped (3.1–3.3)
+- **3.3 Stats helper** (`src/lib/dr/building-stats.ts`): `getBuildingStats(buildingId)` returns `{ open, progress, resolved, total, by_urgency, avg_resolution_hours, recent }`, matching the old Rails `TicketService.stats_for_building` shape. Postgres-side avg via `avg(extract(epoch from (resolved_at - submitted_at)))` so we never pull rows just to subtract timestamps. Same file also exports `listTicketsForDr({ drId, buildingId })` — the union of building-scope tickets + DR's own society-scope tickets, ordered by `submitted_at desc`, attachments column intentionally not selected (DRs never see attachment thumbnails in lists).
+- **3.1 DR dashboard** (`src/app/(authed)/dr/dashboard/{page,stats-row,urgency-breakdown,ticket-list}.tsx`): header shows "{building} — Overview" + "Signed in as {name}", 5 KPI cards (Total/Open/In Progress/Resolved/Avg resolution hrs), urgency pill row (hidden when zero per the old `renderDrUrgencyBreakdown`), and a client-side search-filtered ticket list. Each row carries a scope badge, urgency pill, location ("Society-level" / building name / "{building} — Wing X, Flat Y"), and a 2-line description excerpt. Search filters on `(type | description | referenceCode)` via `useDeferredValue`, no re-fetch.
+- **3.2 DR raise issue** (`src/app/(authed)/dr/tickets/new/{page,dr-ticket-form,actions}.tsx` + `confirm/page.tsx`): scope radio (building/society) with selected-state styled via `has-[:checked]`, same shared attachment uploader/triage as tenant 2.3. Server action validates scope ∈ {building, society}, sets `building_id = scope === 'building' ? profile.buildingId : null` and `unit_id = null`, `raised_by_role = 'dr'`, `raised_by_dr_id = profile.drId`. Confirmation page shows TK-id, scope label ("Building-level issue" / "Society-level query"), urgency (DR is allowed to see urgency on their own submissions), and cross-checks `raisedByDrId === profile.drId` to prevent another DR's ref from being snooped.
+- **DR ticket detail** (`src/app/(authed)/dr/tickets/[id]/page.tsx`): reachable from dashboard list rows. Access rule: ticket's `building_id == profile.buildingId` OR (`scope == 'society'` AND `raised_by_dr_id == profile.drId`) — anything else returns 404. Shows urgency (with a "set" suffix if `urgency_overridden`), scope, status, location adapted to scope, attachments gallery via the shared `<AttachmentGallery>`.
+- **DR profile helper** (`src/lib/dr/dr-profile.ts`): `getDrProfileFromSession()` joins users → drs → buildings → (left) tenants in one query, returns `{ drId, fullName, contact, buildingId, buildingName, societyId, … }` or null if the caller isn't an *active* DR. Contact is sourced from the DR's linked tenant (`tenants.contact || tenants.phone`), falling back to `users.phone` — matches old `Dr#contact` behavior.
+- **Smoke-testing prereq**: no DRs are currently in `public.users` per the 2026-05-14 audit (0/1 migrated). User needs to run `npm run migrate-users` (and resolve the 23 skipped tenants from the same audit) before any of these routes can be exercised against real data.
+- `tsc --noEmit` clean. `npm run build` clean — new routes: `/dr/dashboard`, `/dr/tickets/new`, `/dr/tickets/new/confirm`, `/dr/tickets/[id]`.
+
+### 2026-05-14 — Phase 2 tenant flows shipped (2.1–2.6)
+- **2.1 Dashboard** (`src/app/(authed)/tenant/dashboard/{page,profile-card}.tsx`): greeting + sub-line, profile card with `auto-filled`/`edited by tenant` badge, ticket list using shared `<TicketRow>`. Tickets fetched via `lower(tenant_email) = lower(:email)` join (case-insensitive to match the old app's `tenants_email_lower_idx`). Empty-state copy and "Raise a ticket" CTA included. No urgency/triage_reason in the DOM.
+- **2.2 Profile edit** (`src/app/(authed)/tenant/dashboard/actions.ts`): `updateTenantProfile({ location?, wing?, flat? })`. Find-or-create Society (`Default Society`), Building (`lower(name)` scope), Unit (`lower(coalesce(wing,'')) + lower(coalesce(flat,''))`) inside a single transaction, then `update tenants.unit_id`. Flips `auth.users.user_metadata.location_edited = true` so the badge survives reloads. No-op when desired matches current.
+- **2.3 Submit ticket** (`src/app/(authed)/tenant/tickets/new/{page,ticket-form,actions}.tsx` + `confirm/page.tsx`): client form (select / textarea / drag-drop file zone) + Server Action that validates role, uploads attachments, runs triage, inserts the ticket, then `redirect()` to the confirmation page. `reference_code` comes from the `tickets_reference_seq` default — never set by the app. Confirmation page is its own route (`?ref=TK-…`) so refresh/bookmark behaves; it cross-checks `tickets.tenant_email == authUser.email` to avoid leaking another tenant's TK if a URL is typed.
+- **2.4 Upload helper** (`src/lib/storage/upload.ts` + `src/lib/storage/limits.ts`): `uploadAttachment(file)` validates MIME+extension+size, paths to `{YYYY}/{MM}/{uuid}{ext}`, uploads via service-role client, returns `{ id: 'sup_<path>', name, mimeType }`. Constants split into `limits.ts` (client-safe) so the client form can reference MIME/size without dragging server-only code into the bundle. Companion `fetchAttachmentBytes(id)` powers the route handler.
+- **2.5 Ticket detail** (`src/app/(authed)/tenant/tickets/[id]/page.tsx`): per-ticket page reachable from each list row. Tenant-scoped via `tenant_email == authUser.email`; foreign ticket → `notFound()`. Renders reference, type, description, status pill, location, submitted time, and the attachment gallery. **No urgency / triage_reason in the DOM** (inspect-source clean).
+- **2.6 Change password** (`src/app/(authed)/settings/password/{page,change-password-form,actions}.tsx`): three-input form. Current password verified via a throwaway anon-key client (`persistSession: false`), so the user's real cookies are never touched by the probe; new password applied via `auth.admin.updateUserById`. Linked from the persistent `<UserMenu>` for every role.
+- **Shared bits**: `src/components/shared/ticket-row.tsx` (reused by 2.1 + later phases), `src/components/shared/lightbox.tsx` (`<AttachmentGallery>` with image lightbox + PDF embed), `src/lib/format.ts` (`formatSubmittedAt` matches the old app's `%d %b at %H:%M` so admin date-grouping later won't need a port), `src/lib/tickets.ts` (status/urgency meta + attachment helpers), `src/lib/tenant-profile.ts` (`getTenantProfileFromSession`), `src/lib/triage.ts` (1:1 port of `triage_service.rb` — same categories, same keyword lists, same escalation rules).
+- **Attachment serving** (`src/app/api/attachments/[id]/route.ts`): signed-in GET handler returning bytes from Supabase Storage with `Content-Disposition: inline` for images, `attachment` for everything else. Middleware now skips `/api/*` so route handlers control their own 401 (otherwise `<img src="/api/attachments/...">` would follow a redirect to `/login` and break silently).
+- **Phase 1 backfill state observed** (via one-off `scripts/check_phase1_state.ts`): RLS applied on all 13 public tables (31 policies). `buildings.code` populated 125/125. `migrate_users` populated 76/99 tenants; 23 tenants and all staff (admins/managers/drs, 0/1 each) remain unmigrated. Phase 2 only needs tenants and is unblocked, but Phase 3+ requires the user to re-run `npm run migrate-users` and investigate the 23 skipped tenants before any DR/manager/admin work can be smoke-tested.
+- `tsc --noEmit` clean. `npm run build` clean — new routes: `/tenant/dashboard`, `/tenant/tickets/new`, `/tenant/tickets/new/confirm`, `/tenant/tickets/[id]`, `/settings/password`, `/api/attachments/[id]`.
+
+### 2026-05-14 — 0.6 authed shell shipped + folder reorg
+- `src/app/(authed)/layout.tsx` — root layout for every signed-in route. Fetches role + full_name via Drizzle (one query); DRs additionally get their building name for the sub-text.
+- `src/components/shared/{app-header,role-nav,user-menu}.tsx` — text logo + role sub-text (`Tenant` / `Admin` / `Manager` / `DR — Building Name`), role-specific nav links, avatar with initials (tenants only — staff show their name as plain text), Log out button.
+- `src/app/(authed)/actions.ts` — `signOut()` server action: clears Supabase session, redirects to `/login`.
+- **Folder reorg**: moved `src/app/(admin)/buildings/codes` → `src/app/(authed)/admin/buildings/codes`. The original `(admin)` route group resolved to URL `/buildings/codes` which fell outside middleware's `/admin/*` gate — anyone signed-in could have visited it. New layout puts the route at URL `/admin/buildings/codes`, properly admin-gated.
+- Updated CLAUDE.md §4 folder layout to document the new convention: `(authed)/{tenant,dr,manager,admin}/...` rather than `(tenant)/`, `(admin)/` etc.
+- `tsc --noEmit` clean, `next build` clean. Route list: `/admin/buildings/codes`, `/login`, `/onboarding/*`, and middleware proxy.
+
+### 2026-05-14 — 1.10 RLS policies written (pending application)
+- `supabase/migrations/20260514000010_rls_policies.sql` — enables RLS on every public-facing table and adds per-role policies.
+- Helper function `public.current_role()` reads the current user's role enum. Marked `security definer` because the function itself reads `public.users` — without elevated privileges its internal SELECT would hit RLS and return null.
+- Coverage: users (self read/update, admin everything), tenants (self read/update + DR sees building + manager/admin all), admins/managers/drs (self read + admin all-write, plus tenants can see their building's DR), tickets (tenant sees own by email match through `public.tenants`, DR sees building tickets + own society tickets, manager/admin all; tenant insert constrained to their tenant row's email), requisitions (manager/admin only), monthly_budgets (manager read / admin write), units/buildings/societies (any signed-in user reads, admin writes).
+- `tickets_read` matches tenant by `lower(t.email) = lower(tickets.tenant_email)` joined through `public.tenants` rather than `auth.users.email`, so post-1.4 tenants with new synthetic emails still see their pre-migration tickets.
+- **Note**: `schema_migrations` and `ar_internal_metadata` (Rails internals) are left untouched. They have RLS OFF by default and no policies; if RLS gets force-enabled later they need explicit treatment, but our V2 code doesn't touch them.
+- **Awaiting user action**: apply via Supabase SQL Editor. No `db:pull` needed afterwards (RLS doesn't change Drizzle's view of the schema).
+
+### 2026-05-14 — 1.9 middleware shipped
+- `src/middleware.ts` — single Edge middleware enforcing session presence, role gating, and onboarding-flag redirects.
+- Uses `@supabase/ssr` `createServerClient` so the same cookie helpers used in Server Components apply. Looks up role + onboarding flags via PostgREST against `public.users` (one query per request).
+- `/onboarding/set-password` is **not** session-gated — it's reached pre-session via the `first_login` token, and the page itself verifies that token. Every other authed route requires a session.
+- Signed-in user visiting `/login` is bounced to their dashboard (or the right onboarding step if flags are still set).
+- Orphan handling: signed in to `auth.users` but missing from `public.users` → sign out + redirect to /login.
+- Matcher skips `_next/static`, `_next/image`, `favicon.ico`, and common image extensions.
+- `tsc --noEmit` clean, `next build` clean (`ƒ Proxy (Middleware)` listed in build output).
+
+### 2026-05-13 — 1.7 onboarding pages shipped
+- `src/app/(auth)/onboarding/set-password/{page,set-password-form}.tsx` — verifies the `first_login` token from URL, accepts new + confirm password (min 6 chars), updates via service-role `admin.updateUserById`, clears `legacy_bcrypt_hash`, signs the user in, then redirects (to `/onboarding/confirm-profile` if flag set, else to role dashboard).
+- `src/app/(auth)/onboarding/confirm-profile/{page,confirm-profile-form}.tsx` — reads the current session, prefills full name + phone. Tenants additionally see read-only building/wing/flat + optional address note (stored in `auth.users.user_metadata.address_note`). Staff get name + phone only. On submit, clears `needs_profile_confirm` and redirects to role dashboard.
+- `src/app/(auth)/onboarding/actions.ts` — `setPassword(token, newPassword, confirm)` + `confirmProfile(input)`. Both validate, write, and `redirect()` on success. Error paths return `{ ok: false, error }`.
+- Refactored `onboarding-token.ts` to lazy-load `ONBOARDING_TOKEN_SECRET` (the build step evaluates server modules and tripped on the eager throw).
+- **User must set `ONBOARDING_TOKEN_SECRET` in `.env.local`** before running the app. Generate with `openssl rand -base64 48`.
+
+### 2026-05-13 — 1.5 + 1.6 + 1.8 login flow + BCrypt rehash shipped
+- `src/lib/auth/onboarding-token.ts` — HMAC-SHA256 signed tokens, two shapes: `first_login` (gate for /onboarding/set-password) and `login_continue` (carries resolved email between Continue + Sign-in steps so the browser never sees it). Adds `ONBOARDING_TOKEN_SECRET` env var (see `.env.example`).
+- `src/lib/auth/legacy-rehash.ts` — `authenticateWithPassword(email, password)`. Tries Supabase Auth → on failure looks up `public.users` by email, BCrypt-compares `legacy_bcrypt_hash`, on match silently sets the password via admin API, nulls the hash, signs in. All failure paths return generic `{ ok: false }`.
+- `src/app/(auth)/login/{page,login-form,actions}.tsx` — Server Component shell + Client form with Tenant/Staff tabs + two Server Actions (`resolveTenantLogin`, `resolveStaffLogin`) and `signInWithContinuation`. Tenant input parsed by `^([A-Z0-9]{2,4})-(.+)$`. All lookup misses return a single generic error string — no enumeration of valid building codes or usernames.
+- `src/app/page.tsx` — replaced Next.js default with `redirect("/login")`. Middleware in 1.9 will short-circuit this for signed-in users.
+- **Known gap until 1.9 lands:** a successful sign-in redirects to `/`, which currently always falls through to `/login`. Middleware will make `/` route signed-in users straight to their role dashboard. Until then, the form works but the post-sign-in landing is unfinished.
+- `tsc --noEmit` clean, `next build` clean.
+
+### 2026-05-13 — 1.4 user backfill script ready
+- `scripts/migrate_users.ts` + `npm run migrate-users`. Migrates tenants → admins → managers → drs in order. Skips any role row with `user_id IS NOT NULL` (idempotent). Caches existing `auth.users` by lowercased email at start so we don't burn API calls; falls back to a refresh if `createUser` reports a duplicate.
+- Email synthesis: tenants use `tenants.email` when it's real, otherwise `{building_code}-{flat}@tenants.local` (lowercased). Staff/DR always use `{username}@staff.local`. Each created auth.users carries `user_metadata: { role, synthetic_email }` so a later UI can prompt for a real email.
+- `users.full_name` for DRs sourced from the linked tenant (DR table has no `name` column).
+- DR identity is **separate** from tenant identity — even for a DR who is also a tenant, two `auth.users` rows are created (different emails, different `user_id` rows in `public.users`).
+- Failure mode: if a previous run dies between auth.users create and `public.users` insert, a re-run finds the existing `auth.users` by email (cache miss → refresh), then inserts `public.users` with `ON CONFLICT DO NOTHING` and updates the role-table FK. No cleanup needed.
+- Hard prerequisite: `npm run suggest-building-codes` must populate every building's code first. The script throws loudly if a tenant needs a synthetic email but the building has none.
+
+### 2026-05-13 — 1.3 building-code backfill (code + admin UI shipped)
+- `src/lib/building-codes.ts` — shared `suggestBuildingCode(name, taken)` helper. Algorithm per CLAUDE.md §1.3: drop noise words, first-letter-per-token, single-word fallback, collision suffix.
+- `scripts/suggest_building_codes.ts` — idempotent backfill. Reads via Drizzle, writes only where `code IS NULL`, prints the assignment table before applying.
+- `npm run suggest-building-codes` — wired with `tsx --env-file=.env.local`. Added `tsx` to devDependencies.
+- `src/app/(admin)/buildings/codes/{page,code-editor,actions}.tsx` — server-rendered table with per-row client editor; Server Action validates 2–4 alphanumeric, checks uniqueness via `upper(code)`, returns inline error on collision.
+- **`db:pull` Drizzle-kit quirk fixed**: drizzle-kit emits a cross-schema `usersInAuth` reference into `relations.ts` (from our FK to `auth.users`) but doesn't export it from `schema.ts`, breaking typecheck. Added `scripts/clean_relations.mjs` and chained it into the `db:pull` npm script so the cleanup is automatic going forward.
+- Verified: `tsc --noEmit` clean, `next build` clean (`/buildings/codes` route compiled).
+- **Awaiting user action**: run `npm run suggest-building-codes` to populate codes, then optionally open `/buildings/codes` once a login lands. 1.4 depends on these codes existing.
 
 ### 2026-05-13 — 1.1 + 1.2 migration files written (pending application)
 - `supabase/migrations/20260514000001_v2_users_table.sql` — creates `user_role` enum, `public.users` table (with `legacy_bcrypt_hash`, both onboarding flags), and nullable `user_id` FK on every role table. Pure additive.

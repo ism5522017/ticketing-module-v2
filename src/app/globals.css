@@ -63,21 +63,26 @@
   --color-deh-red: #d62828;
   --color-deh-dark: #003049;
   --color-deh-bg: #EAE2B7;
+  --color-deh-bg-deep: #d8cf9a;
   --color-deh-white: #ffffff;
   --color-deh-text: #222222;
+  --color-deh-card: #ffffff;
 
   /* Tints */
   --color-deh-light-blue: #E6F1FB;
   --color-deh-light-green: #EAF3DE;
   --color-deh-light-orange: #FAEEDA;
+  --color-deh-light-yellow: #FFF4D6;
   --color-deh-dark-orange: #633806;
+  --color-deh-dark-blue: #0C447C;
 
   /* Neutrals */
   --color-deh-gray-bg: #f4f6f8;
   --color-deh-gray-200: #e6e9ed;
-  --color-deh-border: #f0f0f0;
-  --color-deh-muted: #888888;
-  --color-deh-muted-light: #aaaaaa;
+  --color-deh-border: #e7e3d3;
+  --color-deh-border-soft: #f0f0f0;
+  --color-deh-muted: #6b7280;
+  --color-deh-muted-light: #9ca3af;
 
   /* Urgency — used by .badge-* and .urgency-pill-* in the old app */
   --color-urgency-critical: #d62828;
@@ -105,6 +110,103 @@
   --text-deh-md: 14px;
   --text-deh-lg: 18px;
   --text-deh-xl: 24px;
+  --text-deh-2xl: 30px;
+  --text-deh-3xl: 38px;
+}
+
+/* =============================================================
+   Display font — Plus Jakarta Sans for headings + hero copy.
+   Geist Sans stays for body, Geist Mono for code/IDs.
+   ============================================================= */
+@theme {
+  --font-display: var(--font-display), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+/* =============================================================
+   Background patterns from the old Rails app — preserve the
+   home-screen + dashboard textures so V2 feels like a continuation.
+   ============================================================= */
+.bg-pattern-auth {
+  background-color: var(--color-deh-bg);
+  background-image: url("/img/bg-pattern.svg");
+  background-size: 120px 120px;
+  background-attachment: fixed;
+}
+.bg-pattern-dashboard {
+  background-color: var(--color-deh-gray-bg);
+  background-image: url("/img/bg-pattern-dashboard.svg");
+  background-size: 120px 120px;
+  background-attachment: fixed;
+}
+
+/* Gradient accents for hero blocks / KPI strips. */
+.bg-deh-gradient-warm {
+  background-image: linear-gradient(135deg, #003049 0%, #185FA5 60%, #f77f00 130%);
+}
+.bg-deh-gradient-sun {
+  background-image: linear-gradient(135deg, #fcbf49 0%, #f77f00 100%);
+}
+.bg-deh-gradient-leaf {
+  background-image: linear-gradient(135deg, #3B6D11 0%, #639922 100%);
+}
+.bg-deh-gradient-sky {
+  background-image: linear-gradient(135deg, #185FA5 0%, #378ADD 100%);
+}
+.bg-deh-gradient-rose {
+  background-image: linear-gradient(135deg, #d62828 0%, #f77f00 100%);
+}
+
+/* Subtle lift used on cards + interactive tiles. */
+.shadow-deh-card {
+  box-shadow: 0 1px 2px rgba(0, 48, 73, 0.04), 0 8px 24px rgba(0, 48, 73, 0.06);
+}
+.shadow-deh-card-hover:hover {
+  box-shadow: 0 4px 8px rgba(0, 48, 73, 0.06), 0 16px 36px rgba(0, 48, 73, 0.1);
+  transform: translateY(-2px);
+}
+.shadow-deh-card-hover {
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+/* Frosted glass card for overlays / hero blocks. */
+.glass-card {
+  background-color: rgba(255, 255, 255, 0.72);
+  backdrop-filter: saturate(180%) blur(14px);
+  -webkit-backdrop-filter: saturate(180%) blur(14px);
+  box-shadow: 0 1px 2px rgba(0, 48, 73, 0.05), 0 16px 48px rgba(0, 48, 73, 0.08);
+}
+
+/* Header gradient — subtle navy → indigo wash. */
+.bg-deh-header {
+  background-image: linear-gradient(90deg, #002238 0%, #003049 45%, #0C447C 100%);
+}
+
+/* Active nav pill — yellow accent line + subtle white bg. */
+.nav-active {
+  background-color: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+  box-shadow: inset 0 -2px 0 0 #fcbf49;
+}
+
+/* Input focus ring — soft brand-blue glow. */
+.focus-deh:focus,
+.focus-deh:focus-visible {
+  outline: none;
+  border-color: #185FA5;
+  box-shadow: 0 0 0 3px rgba(24, 95, 165, 0.18);
+}
+
+/* Skeleton shimmer (used by loading.tsx). */
+@keyframes deh-shimmer {
+  from { background-position: -200% 0; }
+  to { background-position: 200% 0; }
+}
+.skeleton-deh {
+  background: linear-gradient(90deg, #e6e9ed 0%, #f4f6f8 50%, #e6e9ed 100%);
+  background-size: 200% 100%;
+  animation: deh-shimmer 1.6s ease-in-out infinite;
+  border-radius: 8px;
 }
 
 :root {

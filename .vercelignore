@@ -1,0 +1,14 @@
+# Local-only docs and notes
+CLAUDE.md
+building-directory.md
+
+# One-shot scripts run via tsx locally — not used by the runtime
+scripts/
+
+# DB migrations applied manually via Supabase SQL Editor
+supabase/
+
+# Local templates and build caches
+.env.example
+*.tsbuildinfo
+.next/

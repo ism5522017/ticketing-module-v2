@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm/relations";
-import { units, tenants, users, tickets, requisitions, buildings, admins, managers, drs, societies, usersInAuth } from "./schema";
+import { units, tenants, users, tickets, requisitions, buildings, admins, managers, drs, societies, managerBuildingAssignments } from "./schema";
 
 export const tenantsRelations = relations(tenants, ({one, many}) => ({
 	unit: one(units, {
@@ -26,11 +26,8 @@ export const usersRelations = relations(users, ({one, many}) => ({
 	tenants: many(tenants),
 	admins: many(admins),
 	managers: many(managers),
-	usersInAuth: one(usersInAuth, {
-		fields: [users.id],
-		references: [usersInAuth.id]
-	}),
 	drs: many(drs),
+	managerBuildingAssignments: many(managerBuildingAssignments),
 }));
 
 export const requisitionsRelations = relations(requisitions, ({one}) => ({
@@ -64,47 +61,10 @@ export const buildingsRelations = relations(buildings, ({one, many}) => ({
 	units: many(units),
 	tickets: many(tickets),
 	drs: many(drs),
+	managerBuildingAssignments: many(managerBuildingAssignments),
 	society: one(societies, {
 		fields: [buildings.societyId],
 		references: [societies.id]
 	}),
 }));
 
-export const adminsRelations = relations(admins, ({one}) => ({
-	user: one(users, {
-		fields: [admins.userId],
-		references: [users.id]
-	}),
-}));
-
-export const managersRelations = relations(managers, ({one}) => ({
-	user: one(users, {
-		fields: [managers.userId],
-		references: [users.id]
-	}),
-}));
-
-export const drsRelations = relations(drs, ({one, many}) => ({
-	tickets: many(tickets),
-	building: one(buildings, {
-		fields: [drs.buildingId],
-		references: [buildings.id]
-	}),
-	tenant: one(tenants, {
-		fields: [drs.tenantId],
-		references: [tenants.id]
-	}),
-	user: one(users, {
-		fields: [drs.userId],
-		references: [users.id]
-	}),
-}));
-
-export const societiesRelations = relations(societies, ({many}) => ({
-	tickets: many(tickets),
-	buildings: many(buildings),
-}));
-
-export const usersInAuthRelations = relations(usersInAuth, ({many}) => ({
-	users: many(users),
-}));
