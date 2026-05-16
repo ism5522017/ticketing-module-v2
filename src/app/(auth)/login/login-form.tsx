@@ -72,7 +72,7 @@ export function LoginForm() {
 
   return (
     <div className="mx-auto w-full max-w-sm">
-      <header className="mb-7">
+      <header className="mb-6 text-center">
         <h1 className="font-display text-deh-2xl font-bold text-deh-dark">
           Welcome back
         </h1>
