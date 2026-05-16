@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
+import { FileText, ImageIcon, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { ALLOWED_EXT, ALLOWED_MIME, MAX_FILE_SIZE } from "@/lib/storage/limits";
@@ -9,14 +10,45 @@ import { createTicket } from "./actions";
 const MAX_FILES = 5;
 const ACCEPT = ALLOWED_EXT.join(",");
 
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export function TicketForm({ categories }: { categories: string[] }) {
   const [type, setType] = useState("");
   const [description, setDescription] = useState("");
   const [files, setFiles] = useState<File[]>([]);
+  const [previews, setPreviews] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const inputRef = useRef<HTMLInputElement>(null);
   const dropRef = useRef<HTMLDivElement>(null);
+
+  // Generate (and clean up) blob: URLs for image previews.
+  useEffect(() => {
+    const next: Record<string, string> = {};
+    for (const f of files) {
+      const key = `${f.name}-${f.size}-${f.lastModified}`;
+      if (f.type.startsWith("image/")) {
+        next[key] = previews[key] ?? URL.createObjectURL(f);
+      }
+    }
+    // Revoke any preview URLs whose files were removed.
+    for (const [key, url] of Object.entries(previews)) {
+      if (!(key in next)) URL.revokeObjectURL(url);
+    }
+    setPreviews(next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [files]);
+
+  useEffect(() => {
+    return () => {
+      Object.values(previews).forEach((u) => URL.revokeObjectURL(u));
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function addFiles(picked: FileList | File[]) {
     const list: File[] = [];
@@ -100,17 +132,25 @@ export function TicketForm({ categories }: { categories: string[] }) {
           ref={dropRef}
           onDragOver={(e) => {
             e.preventDefault();
-            dropRef.current?.classList.add("border-deh-blue");
+            dropRef.current?.classList.add("drop-zone-active");
           }}
-          onDragLeave={() => dropRef.current?.classList.remove("border-deh-blue")}
+          onDragLeave={() =>
+            dropRef.current?.classList.remove("drop-zone-active")
+          }
           onDrop={onDrop}
           onClick={() => inputRef.current?.click()}
-          className="mt-1 flex cursor-pointer flex-col items-center justify-center rounded-deh-md border-2 border-dashed border-deh-border bg-deh-gray-bg px-4 py-6 text-center text-deh-sm text-deh-muted transition-colors hover:border-deh-blue"
+          className="mt-1 flex cursor-pointer flex-col items-center justify-center gap-2 rounded-deh-md border-2 border-dashed border-deh-border bg-deh-gray-bg/60 px-4 py-7 text-center text-deh-sm text-deh-muted transition-all hover:border-deh-blue hover:bg-deh-light-blue/40"
         >
-          <span>
-            Drop files here or <span className="text-deh-blue underline">browse</span>
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-deh-border">
+            <ImageIcon className="h-4 w-4 text-deh-blue" />
+          </div>
+          <span className="font-medium text-deh-text">
+            Drop files here or{" "}
+            <span className="text-deh-blue underline underline-offset-2">
+              browse
+            </span>
           </span>
-          <span className="mt-1 text-deh-xs">
+          <span className="text-deh-xs">
             Up to {MAX_FILES} files, 10 MB each — JPG, PNG, GIF, WebP, PDF
           </span>
         </div>
@@ -128,23 +168,62 @@ export function TicketForm({ categories }: { categories: string[] }) {
         />
 
         {files.length > 0 ? (
-          <ul className="mt-3 space-y-1.5">
-            {files.map((f, i) => (
-              <li
-                key={`${f.name}-${i}`}
-                className="flex items-center justify-between rounded-deh-md bg-deh-gray-bg px-3 py-2 text-deh-sm"
-              >
-                <span className="truncate">{f.name}</span>
-                <button
-                  type="button"
-                  onClick={() => removeAt(i)}
-                  disabled={isPending}
-                  className="text-deh-xs text-deh-red hover:underline"
+          <ul className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {files.map((f, i) => {
+              const key = `${f.name}-${f.size}-${f.lastModified}`;
+              const url = previews[key];
+              const isImg = f.type.startsWith("image/");
+              return (
+                <li
+                  key={`${f.name}-${i}`}
+                  className="group relative overflow-hidden rounded-deh-md border border-deh-border bg-deh-white shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
                 >
-                  Remove
-                </button>
-              </li>
-            ))}
+                  <div className="flex aspect-[4/3] items-center justify-center bg-deh-gray-bg">
+                    {isImg && url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={url}
+                        alt={f.name}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex flex-col items-center gap-1.5 text-deh-muted">
+                        {f.type === "application/pdf" ? (
+                          <FileText className="h-8 w-8 text-deh-red" />
+                        ) : (
+                          <ImageIcon className="h-8 w-8" />
+                        )}
+                        <span className="text-deh-xxs font-semibold uppercase tracking-wide">
+                          {f.type === "application/pdf" ? "PDF" : "File"}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between gap-2 px-3 py-2">
+                    <div className="min-w-0">
+                      <p
+                        className="truncate text-deh-xs font-medium text-deh-text"
+                        title={f.name}
+                      >
+                        {f.name}
+                      </p>
+                      <p className="text-deh-xxs text-deh-muted">
+                        {formatSize(f.size)}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeAt(i)}
+                    disabled={isPending}
+                    aria-label={`Remove ${f.name}`}
+                    className="absolute right-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-black/50 text-white opacity-0 backdrop-blur transition-opacity hover:bg-deh-red group-hover:opacity-100"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         ) : null}
       </div>
@@ -156,7 +235,11 @@ export function TicketForm({ categories }: { categories: string[] }) {
       ) : null}
 
       <div className="flex items-center gap-3">
-        <Button type="submit" disabled={isPending || !type || description.trim().length < 5}>
+        <Button
+          type="submit"
+          disabled={isPending || !type || description.trim().length < 5}
+          className="btn-glow rounded-deh-pill bg-deh-blue px-5 py-2.5 text-deh-md font-semibold text-white hover:bg-deh-dark-blue"
+        >
           {isPending ? "Submitting…" : "Submit ticket"}
         </Button>
       </div>

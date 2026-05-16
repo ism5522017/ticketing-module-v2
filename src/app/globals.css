@@ -209,6 +209,50 @@
   border-radius: 8px;
 }
 
+/* Glow-on-hover for primary CTAs.
+   Use on any pill/button: <button className="btn-glow bg-deh-blue ...">  */
+.btn-glow {
+  position: relative;
+  transition: transform 0.18s ease, box-shadow 0.25s ease, filter 0.18s ease;
+}
+.btn-glow:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow:
+    0 0 0 4px rgba(24, 95, 165, 0.15),
+    0 10px 28px -8px rgba(24, 95, 165, 0.55);
+  filter: brightness(1.05);
+}
+.btn-glow:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+/* Warm-tinted glow for yellow/orange CTAs. */
+.btn-glow-warm:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow:
+    0 0 0 4px rgba(252, 191, 73, 0.25),
+    0 10px 28px -8px rgba(247, 127, 0, 0.55);
+  filter: brightness(1.05);
+}
+
+/* Dashed-drop-zone polish: gradient ring on dragover. */
+.drop-zone-active {
+  border-color: var(--color-deh-blue) !important;
+  background-image: linear-gradient(135deg, rgba(24, 95, 165, 0.06), rgba(252, 191, 73, 0.06));
+}
+
+/* Decorative ambient blob — drop behind hero blocks. */
+.bg-ambient::before {
+  content: "";
+  position: absolute;
+  inset: -40% -10% auto auto;
+  width: 60%;
+  height: 60%;
+  background: radial-gradient(closest-side, rgba(252, 191, 73, 0.25), transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
 :root {
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);

@@ -34,7 +34,7 @@ export default async function TenantDashboardPage() {
           {greetingFor()}
         </p>
         <h1 className="mt-1 font-display text-deh-2xl font-bold text-deh-dark">
-          Hello, {profile.fullName.split(" ")[0]}
+          Hello, {profile.fullName}
         </h1>
         <p className="mt-1 text-deh-sm text-deh-muted">
           {profile.buildingName} — Wing {profile.wing || "—"}, Flat {profile.flat || "—"}
@@ -48,7 +48,7 @@ export default async function TenantDashboardPage() {
           <h2 className="font-display text-deh-lg font-semibold text-deh-dark">My tickets</h2>
           <Link
             href="/tenant/tickets/new"
-            className="inline-flex items-center gap-1.5 rounded-deh-pill bg-deh-blue px-4 py-2 text-deh-sm font-semibold text-white shadow-deh-card-hover transition-colors hover:bg-deh-dark-blue"
+            className="btn-glow inline-flex items-center gap-1.5 rounded-deh-pill bg-deh-blue px-4 py-2 text-deh-sm font-semibold text-white hover:bg-deh-dark-blue"
           >
             <PlusCircle className="h-4 w-4" />
             Raise a ticket
@@ -56,13 +56,23 @@ export default async function TenantDashboardPage() {
         </div>
 
         {myTickets.length === 0 ? (
-          <p className="rounded-deh-md border border-dashed border-deh-border px-4 py-8 text-center text-deh-sm text-deh-muted">
-            No tickets yet.{" "}
-            <Link href="/tenant/tickets/new" className="text-deh-blue underline">
-              Raise a ticket
-            </Link>
-            .
-          </p>
+          <div className="rounded-deh-md border border-dashed border-deh-border bg-deh-gray-bg/40 px-4 py-10 text-center">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-deh-border">
+              <PlusCircle className="h-5 w-5 text-deh-blue" />
+            </div>
+            <p className="mt-3 text-deh-sm font-medium text-deh-text">
+              No tickets yet
+            </p>
+            <p className="mt-1 text-deh-xs text-deh-muted">
+              When you raise an issue it&apos;ll show up here.{" "}
+              <Link
+                href="/tenant/tickets/new"
+                className="font-semibold text-deh-blue hover:underline"
+              >
+                Raise one now →
+              </Link>
+            </p>
+          </div>
         ) : (
           <ul className="space-y-2">
             {myTickets.map((t) => (

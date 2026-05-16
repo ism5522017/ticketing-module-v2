@@ -125,7 +125,7 @@ export function LoginForm() {
           <Button
             type="submit"
             disabled={isPending || identifier.trim().length < 2}
-            className="w-full rounded-deh-pill bg-deh-blue py-3 text-deh-md font-semibold text-white shadow-deh-card-hover hover:bg-deh-dark-blue"
+            className="btn-glow w-full rounded-deh-pill bg-deh-blue py-3 text-deh-md font-semibold text-white hover:bg-deh-dark-blue"
           >
             {isPending ? "Checking…" : (<><span>Continue</span><ArrowRight className="ml-1 h-4 w-4" /></>)}
           </Button>
@@ -167,7 +167,7 @@ export function LoginForm() {
           <Button
             type="submit"
             disabled={isPending || password.length === 0}
-            className="w-full rounded-deh-pill bg-deh-blue py-3 text-deh-md font-semibold text-white shadow-deh-card-hover hover:bg-deh-dark-blue"
+            className="btn-glow w-full rounded-deh-pill bg-deh-blue py-3 text-deh-md font-semibold text-white hover:bg-deh-dark-blue"
           >
             {isPending ? "Signing in…" : "Sign in"}
           </Button>

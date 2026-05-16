@@ -65,9 +65,29 @@ export function ProfileCard({ profile }: { profile: TenantProfile }) {
     : { label: "auto-filled", className: "bg-deh-light-green text-deh-green" };
 
   return (
-    <section className="rounded-deh-lg bg-deh-white p-5 ring-1 ring-deh-border">
-      <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-deh-lg font-semibold text-deh-text">Your details</h2>
+    <section className="rounded-deh-xl bg-white p-6 shadow-deh-card ring-1 ring-deh-border">
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <span className="flex h-9 w-9 items-center justify-center rounded-deh-md bg-deh-light-blue text-deh-blue">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="h-4 w-4"
+              aria-hidden="true"
+            >
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+              <circle cx="12" cy="7" r="4" />
+            </svg>
+          </span>
+          <h2 className="font-display text-deh-lg font-semibold text-deh-dark">
+            Your details
+          </h2>
+        </div>
         <div className="flex items-center gap-3">
           <span
             className={`rounded-deh-pill px-2.5 py-0.5 text-deh-xs font-medium ${badge.className}`}
@@ -80,7 +100,7 @@ export function ProfileCard({ profile }: { profile: TenantProfile }) {
               variant="ghost"
               size="sm"
               onClick={startEdit}
-              className="text-deh-blue"
+              className="text-deh-blue hover:bg-deh-light-blue"
             >
               Edit details
             </Button>

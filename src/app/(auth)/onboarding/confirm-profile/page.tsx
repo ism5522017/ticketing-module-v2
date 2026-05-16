@@ -77,13 +77,24 @@ export default async function ConfirmProfilePage() {
     me.role !== "tenant" && !looksSynthetic(authUser.email) ? (authUser.email ?? "") : "";
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-deh-gray-bg px-4 py-12">
-      <div className="w-full max-w-md rounded-deh-lg border border-deh-border bg-white p-8 shadow-sm">
-        <header className="mb-6">
-          <h1 className="text-deh-xl font-bold text-deh-dark">Confirm your details</h1>
-          <p className="text-deh-sm text-deh-muted mt-1">
-            Add a phone number and your real email, then verify your name and address.
-            We&apos;ll use these on every ticket.
+    <div className="w-full max-w-lg">
+      <div className="mb-6 flex items-center justify-center gap-3 text-deh-dark">
+        <span className="flex h-11 w-11 items-center justify-center rounded-deh-md bg-deh-dark text-deh-yellow shadow-deh-card">
+          <span className="font-display text-deh-md font-bold">✓</span>
+        </span>
+        <p className="font-display text-deh-xl font-bold tracking-tight">
+          DEH Maintenance
+        </p>
+      </div>
+
+      <div className="rounded-3xl bg-white px-6 py-10 shadow-deh-card sm:px-10">
+        <header className="mb-6 text-center">
+          <h1 className="font-display text-deh-2xl font-bold text-deh-dark">
+            Confirm your details
+          </h1>
+          <p className="mt-1.5 text-deh-sm text-deh-muted">
+            Add a phone number and your real email, then verify your name and
+            address. We&apos;ll use these on every ticket.
           </p>
         </header>
         <ConfirmProfileForm
@@ -94,6 +105,6 @@ export default async function ConfirmProfilePage() {
           tenantContext={tenantContext}
         />
       </div>
-    </main>
+    </div>
   );
 }
