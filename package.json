@@ -11,7 +11,8 @@
     "db:pull": "drizzle-kit pull && mv -f supabase/drizzle/schema.ts src/db/schema.ts && mv -f supabase/drizzle/relations.ts src/db/relations.ts && node scripts/clean_relations.mjs",
     "suggest-building-codes": "tsx --env-file=.env.local scripts/suggest_building_codes.ts",
     "migrate-users": "tsx --env-file=.env.local scripts/migrate_users.ts",
-    "dump-directory": "tsx --env-file=.env.local scripts/dump_building_directory.ts"
+    "dump-directory": "tsx --env-file=.env.local scripts/dump_building_directory.ts",
+    "reset-staff": "tsx --env-file=.env.local scripts/reset_staff_password.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",

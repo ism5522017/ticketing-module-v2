@@ -188,6 +188,7 @@ Listed here so nobody adds them by accident. Each was considered and excluded:
 | `npm run suggest-building-codes` | Generate 2–3 letter codes for any building that doesn't have one |
 | `npm run migrate-users` | Idempotent backfill of `auth.users` + `public.users` from the legacy role tables |
 | `npm run dump-directory` | Generate `building-directory.md` — a local-only PII-bearing snapshot |
+| `npm run reset-staff -- <username>` | Emergency reset for a staff (admin/manager/DR) account that's locked out. Flips them back to first-login state. Same effect as running `supabase/manual/staff_password_reset.sql`. |
 
 ---
 
