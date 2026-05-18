@@ -53,7 +53,7 @@ export function NewAdminForm() {
             id="username"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            placeholder="e.g. priya"
+            placeholder="e.g. admin"
             disabled={isPending}
             required
           />

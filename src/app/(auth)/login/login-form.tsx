@@ -66,7 +66,7 @@ export function LoginForm() {
   }
 
   const identifierLabel = tab === "tenant" ? "Building & Flat" : "Username";
-  const identifierPlaceholder = tab === "tenant" ? "e.g. ABC-101" : "e.g. priya";
+  const identifierPlaceholder = tab === "tenant" ? "e.g. ABC-101" : "e.g. admin";
   const identifierIcon =
     tab === "tenant" ? <Building className="h-4 w-4 text-deh-muted" /> : <UserRound className="h-4 w-4 text-deh-muted" />;
 
@@ -181,7 +181,14 @@ export function LoginForm() {
       ) : null}
 
       <p className="mt-8 text-center text-deh-xs text-deh-muted">
-        Trouble signing in? Reach out to the society office to reset your access.
+        Trouble signing in? Call the society office at{" "}
+        <a
+          href="tel:+918107216176"
+          className="font-semibold text-deh-blue hover:underline"
+        >
+          +91 810 721 6176
+        </a>
+        .
       </p>
     </div>
   );
