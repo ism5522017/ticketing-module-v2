@@ -1,5 +1,4 @@
 import { Wrench } from "lucide-react";
-import { RoleNav } from "./role-nav";
 import { UserMenu } from "./user-menu";
 
 type Role = "tenant" | "admin" | "manager" | "dr";
@@ -33,8 +32,8 @@ export function AppHeader({
       : ROLE_SUBTEXT[role];
 
   return (
-    <header className="bg-deh-header sticky top-0 z-30 border-b border-white/5 shadow-[0_4px_18px_rgba(0,32,56,0.18)]">
-      <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-4 px-6 py-3">
+    <header className="bg-deh-header sticky top-0 z-30 flex h-16 items-center border-b border-white/5 shadow-[0_4px_18px_rgba(0,32,56,0.18)]">
+      <div className="flex w-full items-center gap-4 px-6">
         <div className="flex items-center gap-3">
           <span className="flex h-10 w-10 items-center justify-center rounded-deh-md bg-deh-yellow text-deh-dark shadow-[0_4px_12px_rgba(252,191,73,0.4)] ring-1 ring-white/20">
             <Wrench className="h-5 w-5" />
@@ -47,11 +46,8 @@ export function AppHeader({
               {subtext}
             </span>
           </div>
-          <span className="hidden h-8 w-px bg-white/10 md:block" aria-hidden="true" />
         </div>
-        <div className="flex-1 overflow-x-auto">
-          <RoleNav role={role} />
-        </div>
+        <div className="flex-1" />
         <UserMenu
           fullName={fullName}
           initials={initialsFor(fullName)}

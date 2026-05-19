@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { AppHeader } from "@/components/shared/app-header";
+import { Sidebar } from "@/components/shared/sidebar";
 import { db } from "@/db/client";
 import { buildings, drs, users } from "@/db/schema";
 import { createClient } from "@/lib/supabase/server";
@@ -36,7 +37,12 @@ export default async function AuthedLayout({ children }: { children: React.React
   return (
     <div className="min-h-screen">
       <AppHeader role={me.role} fullName={me.fullName} buildingLabel={buildingLabel} />
-      <main className="mx-auto max-w-6xl px-6 py-8">{children}</main>
+      <div className="flex">
+        <Sidebar role={me.role} />
+        <main className="min-w-0 flex-1">
+          <div className="mx-auto max-w-6xl px-6 py-8">{children}</div>
+        </main>
+      </div>
     </div>
   );
 }
