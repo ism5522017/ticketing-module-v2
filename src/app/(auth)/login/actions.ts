@@ -18,7 +18,7 @@ export type SignInResult =
 const GENERIC_RESOLVE_ERROR = "No account matches those details.";
 const GENERIC_SIGN_IN_ERROR = "Invalid login. Check your details and try again.";
 
-const TENANT_RE = /^([A-Z0-9]{2,4})-(.+)$/;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const USERNAME_RE = /^[A-Za-z0-9._-]{2,40}$/;
 
 type ResolvedUser = Record<string, unknown> & {
@@ -29,12 +29,7 @@ type ResolvedUser = Record<string, unknown> & {
   active: boolean;
 };
 
-async function lookupTenant(input: string): Promise<ResolvedUser | null> {
-  const cleaned = input.trim().toUpperCase();
-  const m = TENANT_RE.exec(cleaned);
-  if (!m) return null;
-  const [, code, flat] = m;
-
+async function lookupTenant(buildingId: string, flat: string): Promise<ResolvedUser | null> {
   const rows = await db.execute<ResolvedUser>(
     sql`
       select u.id, au.email, u.role::text as role,
@@ -43,8 +38,7 @@ async function lookupTenant(input: string): Promise<ResolvedUser | null> {
       join auth.users au on au.id = u.id
       join public.tenants t on t.user_id = u.id
       join public.units un on un.id = t.unit_id
-      join public.buildings b on b.id = un.building_id
-      where upper(b.code) = ${code}
+      where un.building_id = ${buildingId}::uuid
         and lower(un.flat) = lower(${flat})
         and u.role = 'tenant'
         and u.active
@@ -92,15 +86,18 @@ function resolveForUser(user: ResolvedUser): ResolveResult {
   return { status: "has_password", continuationToken };
 }
 
-export async function resolveTenantLogin(input: string): Promise<ResolveResult> {
-  if (!TENANT_RE.test(input.trim().toUpperCase())) {
-    return {
-      status: "error",
-      error: "Enter your login as BUILDING-FLAT (e.g., ABC-101).",
-    };
+export async function resolveTenantLogin(
+  buildingId: string,
+  flat: string,
+): Promise<ResolveResult> {
+  if (!UUID_RE.test(buildingId.trim())) {
+    return { status: "error", error: "Please pick your building from the list." };
+  }
+  if (!flat.trim()) {
+    return { status: "error", error: "Enter your flat number." };
   }
 
-  const user = await lookupTenant(input);
+  const user = await lookupTenant(buildingId.trim(), flat.trim());
   if (!user) return { status: "error", error: GENERIC_RESOLVE_ERROR };
   return resolveForUser(user);
 }

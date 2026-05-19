@@ -1,9 +1,18 @@
 import { Wrench } from "lucide-react";
-import { LoginForm } from "./login-form";
+import { listBuildings } from "@/lib/buildings/list";
+import { LoginForm, type LoginBuildingOption } from "./login-form";
 
 export const dynamic = "force-dynamic";
 
-export default function LoginPage() {
+export default async function LoginPage() {
+  const rows = await listBuildings();
+  const buildings: LoginBuildingOption[] = rows.map((b) => ({
+    id: b.id,
+    name: b.name,
+    locality: b.locality,
+    city: b.city,
+  }));
+
   return (
     <div className="w-full max-w-md">
       <div className="mb-6 flex items-center justify-center gap-3 text-deh-dark">
@@ -16,7 +25,7 @@ export default function LoginPage() {
       </div>
 
       <div className="rounded-3xl bg-white px-6 py-10 shadow-deh-card sm:px-10">
-        <LoginForm />
+        <LoginForm buildings={buildings} />
       </div>
     </div>
   );

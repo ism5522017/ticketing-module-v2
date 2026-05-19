@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Building, KeyRound, Lock, UserRound } from "lucide-react";
+import { ArrowRight, Building, DoorOpen, KeyRound, Lock, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,12 +17,28 @@ type Tab = "tenant" | "staff";
 
 type Stage =
   | { kind: "identifier" }
-  | { kind: "password"; continuationToken: string };
+  | { kind: "password"; continuationToken: string; displayLabel: string };
 
-export function LoginForm() {
+export interface LoginBuildingOption {
+  id: string;
+  name: string;
+  locality: string | null;
+  city: string | null;
+}
+
+export function LoginForm({ buildings }: { buildings: LoginBuildingOption[] }) {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("tenant");
-  const [identifier, setIdentifier] = useState("");
+
+  // Tenant fields
+  const [buildingQuery, setBuildingQuery] = useState("");
+  const [buildingId, setBuildingId] = useState<string | null>(null);
+  const [flat, setFlat] = useState("");
+  const [suggestOpen, setSuggestOpen] = useState(false);
+
+  // Staff field
+  const [username, setUsername] = useState("");
+
   const [password, setPassword] = useState("");
   const [stage, setStage] = useState<Stage>({ kind: "identifier" });
   const [error, setError] = useState<string | null>(null);
@@ -30,28 +46,54 @@ export function LoginForm() {
 
   function switchTab(next: Tab) {
     setTab(next);
-    setIdentifier("");
+    setBuildingQuery("");
+    setBuildingId(null);
+    setFlat("");
+    setUsername("");
     setPassword("");
     setStage({ kind: "identifier" });
     setError(null);
+    setSuggestOpen(false);
   }
 
-  function onContinue(e: React.FormEvent) {
+  function onTenantContinue(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    if (!buildingId) {
+      setError("Please pick your building from the suggestions.");
+      return;
+    }
+    if (!flat.trim()) {
+      setError("Enter your flat number.");
+      return;
+    }
+    const picked = buildings.find((b) => b.id === buildingId);
+    const displayLabel = picked ? `${picked.name} · ${flat.trim()}` : `Flat ${flat.trim()}`;
+    startTransition(async () => {
+      const res = await resolveTenantLogin(buildingId, flat.trim());
+      handleResolveResult(res, displayLabel);
+    });
+  }
+
+  function onStaffContinue(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     startTransition(async () => {
-      const fn = tab === "tenant" ? resolveTenantLogin : resolveStaffLogin;
-      const res: ResolveResult = await fn(identifier);
-      if (res.status === "error") {
-        setError(res.error);
-        return;
-      }
-      if (res.status === "first_login") {
-        router.push(res.setPasswordPath);
-        return;
-      }
-      setStage({ kind: "password", continuationToken: res.continuationToken });
+      const res = await resolveStaffLogin(username);
+      handleResolveResult(res, username.trim());
     });
+  }
+
+  function handleResolveResult(res: ResolveResult, displayLabel: string) {
+    if (res.status === "error") {
+      setError(res.error);
+      return;
+    }
+    if (res.status === "first_login") {
+      router.push(res.setPasswordPath);
+      return;
+    }
+    setStage({ kind: "password", continuationToken: res.continuationToken, displayLabel });
   }
 
   function onSignIn(e: React.FormEvent) {
@@ -64,11 +106,6 @@ export function LoginForm() {
       // Success: server action redirects.
     });
   }
-
-  const identifierLabel = tab === "tenant" ? "Building & Flat" : "Username";
-  const identifierPlaceholder = tab === "tenant" ? "e.g. ABC-101" : "e.g. admin";
-  const identifierIcon =
-    tab === "tenant" ? <Building className="h-4 w-4 text-deh-muted" /> : <UserRound className="h-4 w-4 text-deh-muted" />;
 
   return (
     <div className="mx-auto w-full max-w-sm">
@@ -93,49 +130,34 @@ export function LoginForm() {
       </div>
 
       {stage.kind === "identifier" ? (
-        <form onSubmit={onContinue} className="space-y-4">
-          <div>
-            <Label htmlFor="identifier" className="text-deh-text">
-              {identifierLabel}
-            </Label>
-            <div className="relative mt-1">
-              <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center">
-                {identifierIcon}
-              </span>
-              <Input
-                id="identifier"
-                autoFocus
-                autoComplete={tab === "tenant" ? "off" : "username"}
-                spellCheck={false}
-                autoCapitalize={tab === "tenant" ? "characters" : "none"}
-                value={identifier}
-                onChange={(e) => setIdentifier(e.target.value)}
-                placeholder={identifierPlaceholder}
-                disabled={isPending}
-                required
-                className="focus-deh h-11 pl-9 text-deh-md"
-              />
-            </div>
-            <p className="mt-1 text-deh-xs text-deh-muted">
-              {tab === "tenant"
-                ? "Your building code, a hyphen, and your flat (e.g. ABC-101)."
-                : "The username you sign in with."}
-            </p>
-          </div>
-          <Button
-            type="submit"
-            disabled={isPending || identifier.trim().length < 2}
-            className="btn-glow w-full rounded-deh-pill bg-deh-blue py-3 text-deh-md font-semibold text-white hover:bg-deh-dark-blue"
-          >
-            {isPending ? "Checking…" : (<><span>Continue</span><ArrowRight className="ml-1 h-4 w-4" /></>)}
-          </Button>
-        </form>
+        tab === "tenant" ? (
+          <TenantIdentifierForm
+            buildings={buildings}
+            buildingQuery={buildingQuery}
+            setBuildingQuery={setBuildingQuery}
+            buildingId={buildingId}
+            setBuildingId={setBuildingId}
+            flat={flat}
+            setFlat={setFlat}
+            suggestOpen={suggestOpen}
+            setSuggestOpen={setSuggestOpen}
+            isPending={isPending}
+            onSubmit={onTenantContinue}
+          />
+        ) : (
+          <StaffIdentifierForm
+            username={username}
+            setUsername={setUsername}
+            isPending={isPending}
+            onSubmit={onStaffContinue}
+          />
+        )
       ) : (
         <form onSubmit={onSignIn} className="space-y-4">
           <div className="flex items-center justify-between rounded-deh-md border border-deh-border bg-deh-light-blue/60 px-3 py-2 text-deh-sm">
             <span className="flex items-center gap-2 text-deh-text">
               <KeyRound className="h-3.5 w-3.5 text-deh-blue" />
-              Continuing as <span className="font-semibold">{identifier}</span>
+              Continuing as <span className="font-semibold">{stage.displayLabel}</span>
             </span>
             <button
               type="button"
@@ -191,6 +213,229 @@ export function LoginForm() {
         .
       </p>
     </div>
+  );
+}
+
+function TenantIdentifierForm({
+  buildings,
+  buildingQuery,
+  setBuildingQuery,
+  buildingId,
+  setBuildingId,
+  flat,
+  setFlat,
+  suggestOpen,
+  setSuggestOpen,
+  isPending,
+  onSubmit,
+}: {
+  buildings: LoginBuildingOption[];
+  buildingQuery: string;
+  setBuildingQuery: (s: string) => void;
+  buildingId: string | null;
+  setBuildingId: (id: string | null) => void;
+  flat: string;
+  setFlat: (s: string) => void;
+  suggestOpen: boolean;
+  setSuggestOpen: (b: boolean) => void;
+  isPending: boolean;
+  onSubmit: (e: React.FormEvent) => void;
+}) {
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+  const [highlight, setHighlight] = useState(0);
+
+  const matches = useMemo(() => {
+    const q = buildingQuery.trim().toLowerCase();
+    if (!q) return [];
+    return buildings
+      .filter((b) => {
+        if (b.name.toLowerCase().includes(q)) return true;
+        if (b.locality && b.locality.toLowerCase().includes(q)) return true;
+        if (b.city && b.city.toLowerCase().includes(q)) return true;
+        return false;
+      })
+      .slice(0, 8);
+  }, [buildingQuery, buildings]);
+
+  useEffect(() => {
+    setHighlight(0);
+  }, [buildingQuery]);
+
+  useEffect(() => {
+    function onDocClick(e: MouseEvent) {
+      if (!wrapRef.current) return;
+      if (!wrapRef.current.contains(e.target as Node)) setSuggestOpen(false);
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [setSuggestOpen]);
+
+  function pick(b: LoginBuildingOption) {
+    setBuildingId(b.id);
+    setBuildingQuery(b.name);
+    setSuggestOpen(false);
+  }
+
+  function onBuildingKey(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (!suggestOpen || matches.length === 0) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setHighlight((h) => Math.min(h + 1, matches.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setHighlight((h) => Math.max(h - 1, 0));
+    } else if (e.key === "Enter" && matches[highlight]) {
+      e.preventDefault();
+      pick(matches[highlight]);
+    } else if (e.key === "Escape") {
+      setSuggestOpen(false);
+    }
+  }
+
+  return (
+    <form onSubmit={onSubmit} className="space-y-4">
+      <div ref={wrapRef}>
+        <Label htmlFor="building" className="text-deh-text">Building</Label>
+        <div className="relative mt-1">
+          <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center">
+            <Building className="h-4 w-4 text-deh-muted" />
+          </span>
+          <Input
+            id="building"
+            autoFocus
+            autoComplete="off"
+            spellCheck={false}
+            value={buildingQuery}
+            onChange={(e) => {
+              setBuildingQuery(e.target.value);
+              setBuildingId(null);
+              setSuggestOpen(true);
+            }}
+            onFocus={() => setSuggestOpen(true)}
+            onKeyDown={onBuildingKey}
+            placeholder="Start typing your building name"
+            disabled={isPending}
+            required
+            aria-autocomplete="list"
+            aria-expanded={suggestOpen && matches.length > 0}
+            aria-controls="building-suggestions"
+            className="focus-deh h-11 pl-9 text-deh-md"
+          />
+          {suggestOpen && matches.length > 0 ? (
+            <ul
+              id="building-suggestions"
+              role="listbox"
+              className="absolute z-10 mt-1 max-h-64 w-full overflow-auto rounded-deh-md border border-deh-border bg-white py-1 shadow-deh-card"
+            >
+              {matches.map((b, i) => {
+                const sub = [b.locality, b.city].filter(Boolean).join(", ");
+                return (
+                  <li
+                    key={b.id}
+                    role="option"
+                    aria-selected={i === highlight}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      pick(b);
+                    }}
+                    onMouseEnter={() => setHighlight(i)}
+                    className={
+                      "cursor-pointer px-3 py-2 text-deh-sm " +
+                      (i === highlight ? "bg-deh-light-blue/60" : "")
+                    }
+                  >
+                    <div className="font-medium text-deh-text">{b.name}</div>
+                    {sub ? (
+                      <div className="text-deh-xs text-deh-muted">{sub}</div>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
+          ) : null}
+        </div>
+        <p className="mt-1 text-deh-xs text-deh-muted">
+          {buildingId
+            ? "Building selected. Now enter your flat below."
+            : "Pick the building that matches yours from the dropdown."}
+        </p>
+      </div>
+
+      <div>
+        <Label htmlFor="flat" className="text-deh-text">Flat</Label>
+        <div className="relative mt-1">
+          <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center">
+            <DoorOpen className="h-4 w-4 text-deh-muted" />
+          </span>
+          <Input
+            id="flat"
+            autoComplete="off"
+            spellCheck={false}
+            value={flat}
+            onChange={(e) => setFlat(e.target.value)}
+            placeholder="e.g. 101"
+            disabled={isPending}
+            required
+            className="focus-deh h-11 pl-9 text-deh-md"
+          />
+        </div>
+      </div>
+
+      <Button
+        type="submit"
+        disabled={isPending || !buildingId || flat.trim().length === 0}
+        className="btn-glow w-full rounded-deh-pill bg-deh-blue py-3 text-deh-md font-semibold text-white hover:bg-deh-dark-blue"
+      >
+        {isPending ? "Checking…" : (<><span>Continue</span><ArrowRight className="ml-1 h-4 w-4" /></>)}
+      </Button>
+    </form>
+  );
+}
+
+function StaffIdentifierForm({
+  username,
+  setUsername,
+  isPending,
+  onSubmit,
+}: {
+  username: string;
+  setUsername: (s: string) => void;
+  isPending: boolean;
+  onSubmit: (e: React.FormEvent) => void;
+}) {
+  return (
+    <form onSubmit={onSubmit} className="space-y-4">
+      <div>
+        <Label htmlFor="username" className="text-deh-text">Username</Label>
+        <div className="relative mt-1">
+          <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center">
+            <UserRound className="h-4 w-4 text-deh-muted" />
+          </span>
+          <Input
+            id="username"
+            autoFocus
+            autoComplete="username"
+            spellCheck={false}
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            placeholder="e.g. admin"
+            disabled={isPending}
+            required
+            className="focus-deh h-11 pl-9 text-deh-md"
+          />
+        </div>
+        <p className="mt-1 text-deh-xs text-deh-muted">
+          The username you sign in with.
+        </p>
+      </div>
+      <Button
+        type="submit"
+        disabled={isPending || username.trim().length < 2}
+        className="btn-glow w-full rounded-deh-pill bg-deh-blue py-3 text-deh-md font-semibold text-white hover:bg-deh-dark-blue"
+      >
+        {isPending ? "Checking…" : (<><span>Continue</span><ArrowRight className="ml-1 h-4 w-4" /></>)}
+      </Button>
+    </form>
   );
 }
 

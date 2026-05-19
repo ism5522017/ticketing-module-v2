@@ -10,7 +10,6 @@ export const dynamic = "force-dynamic";
 
 interface CredentialRow {
   tenantId: string;
-  loginId: string;
   tenantName: string;
   building: string;
   wing: string | null;
@@ -57,7 +56,6 @@ export default async function TenantCredentialsPage({
       mustChangePassword: tenants.mustChangePassword,
       needsPasswordSet: users.needsPasswordSet,
       buildingName: buildings.name,
-      buildingCode: buildings.code,
       wing: units.wing,
       flat: units.flat,
     })
@@ -69,8 +67,6 @@ export default async function TenantCredentialsPage({
     .orderBy(asc(buildings.name), asc(units.flat));
 
   const credentialRows: CredentialRow[] = rows.map((r) => {
-    const code = r.buildingCode ? r.buildingCode.toUpperCase() : "?";
-    const flat = r.flat ?? "?";
     const status: CredentialRow["passwordStatus"] = r.needsPasswordSet
       ? "Awaiting first sign-in"
       : r.mustChangePassword
@@ -78,7 +74,6 @@ export default async function TenantCredentialsPage({
         : "Custom";
     return {
       tenantId: r.tenantId,
-      loginId: `${code}-${flat}`,
       tenantName: r.tenantName,
       building: r.buildingName ?? "—",
       wing: r.wing,
@@ -100,9 +95,8 @@ export default async function TenantCredentialsPage({
       <header className="mb-6">
         <h1 className="text-deh-xl font-bold text-deh-dark">Tenant credentials</h1>
         <p className="text-deh-sm text-deh-muted">
-          Login IDs are formatted as <span className="font-mono">CODE-FLAT</span> (the building code +
-          the flat number). Default password is <span className="font-mono">1234</span> until the
-          tenant signs in for the first time.
+          Tenants sign in by picking their building and typing their flat number. Default password is{" "}
+          <span className="font-mono">1234</span> until the tenant signs in for the first time.
         </p>
         <p className="mt-1 text-deh-xs text-deh-muted">
           Showing {credentialRows.length} of {totalCount} active tenants.
@@ -116,7 +110,6 @@ export default async function TenantCredentialsPage({
           <thead className="text-deh-xs uppercase tracking-wide text-deh-muted">
             <tr className="border-b border-deh-border">
               <th className="px-3 py-2 text-left font-semibold">Tenant</th>
-              <th className="px-3 py-2 text-left font-semibold">Login ID</th>
               <th className="px-3 py-2 text-left font-semibold">Building</th>
               <th className="px-3 py-2 text-left font-semibold">Wing/Flat</th>
               <th className="px-3 py-2 text-left font-semibold">Email</th>
@@ -125,11 +118,10 @@ export default async function TenantCredentialsPage({
           </thead>
           <tbody>
             {credentialRows.length === 0 ? (
-              <tr><td colSpan={6} className="px-3 py-4 text-deh-sm italic text-deh-muted">No tenants match these filters.</td></tr>
+              <tr><td colSpan={5} className="px-3 py-4 text-deh-sm italic text-deh-muted">No tenants match these filters.</td></tr>
             ) : credentialRows.map((r) => (
               <tr key={r.tenantId} className="border-b border-deh-border">
                 <td className="px-3 py-3 font-medium text-deh-text">{r.tenantName}</td>
-                <td className="px-3 py-3 font-mono text-deh-sm text-deh-blue">{r.loginId}</td>
                 <td className="px-3 py-3 text-deh-sm">{r.building}</td>
                 <td className="px-3 py-3 text-deh-sm">
                   {r.wing ? r.wing + " / " : ""}{r.flat ?? "—"}

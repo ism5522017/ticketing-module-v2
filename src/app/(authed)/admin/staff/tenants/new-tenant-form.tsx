@@ -12,6 +12,11 @@ interface UnitOption {
   label: string;
 }
 
+function buildingLabel(b: BuildingSummary) {
+  const sub = [b.locality, b.city].filter(Boolean).join(", ");
+  return sub ? `${b.name} (${sub})` : b.name;
+}
+
 export function NewTenantForm({ buildings }: { buildings: BuildingSummary[] }) {
   const [open, setOpen] = useState(false);
   const [buildingId, setBuildingId] = useState("");
@@ -100,7 +105,7 @@ export function NewTenantForm({ buildings }: { buildings: BuildingSummary[] }) {
             <option value="">Select a building…</option>
             {buildings.map((b) => (
               <option key={b.id} value={b.id}>
-                {b.code ? `${b.code} — ${b.name}` : b.name}
+                {buildingLabel(b)}
               </option>
             ))}
           </select>

@@ -49,11 +49,14 @@ export function FilterBar({ buildings }: { buildings: BuildingSummary[] }) {
           className="mt-1 w-full rounded-md border border-deh-border bg-background px-3 py-2 text-deh-base"
         >
           <option value="">All buildings</option>
-          {buildings.map((b) => (
-            <option key={b.id} value={b.id}>
-              {b.code ? `${b.code} — ${b.name}` : b.name}
-            </option>
-          ))}
+          {buildings.map((b) => {
+            const sub = [b.locality, b.city].filter(Boolean).join(", ");
+            return (
+              <option key={b.id} value={b.id}>
+                {sub ? `${b.name} (${sub})` : b.name}
+              </option>
+            );
+          })}
         </select>
       </div>
       <div className="min-w-[140px]">

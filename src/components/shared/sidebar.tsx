@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   Banknote,
-  Building2,
   ChevronsLeft,
   ChevronsRight,
   ClipboardList,
@@ -52,7 +51,6 @@ const NAV: Record<Role, NavItem[]> = {
     { href: "/admin/staff/drs", label: "DRs", icon: UserSquare2 },
     { href: "/admin/staff/tenants", label: "Tenants", icon: Users },
     { href: "/admin/staff/tenant-credentials", label: "Login IDs", icon: KeyRound },
-    { href: "/admin/buildings/codes", label: "Codes", icon: Building2 },
   ],
 };
 
