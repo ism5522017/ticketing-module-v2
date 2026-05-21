@@ -458,6 +458,53 @@ approval and a Changelog entry that records the scope expansion.
 
 Newest at the top. ISO dates. Follow the format in §2.
 
+### 2026-05-21 — Fix /admin/buildings 500 (Drizzle alias + projection-subquery bugs)
+
+- **What:** Two-stage rewrite of [src/lib/admin/buildings-list.ts](src/lib/admin/buildings-list.ts).
+  1. Killed the raw-SQL `from ${buildings} b … left join (subquery) u on
+     u.building_id = b.id` approach. Drizzle's `${buildings}` emits
+     `"buildings"` (no alias) but the WHERE clause from `isNull(buildings.archivedAt)`
+     emits `"buildings"."archived_at"`. Postgres then errors:
+     once a table is given an explicit alias `b`, the original name is
+     no longer in scope. Result was a hard 500 (the Vercel "ERROR
+     123225712" the user reported).
+  2. Switched to Drizzle's query builder with two correlated `sql<number>`
+     subqueries (`unitCountSql`, `ticketCountSql`). First attempt used
+     `${units.buildingId} = ${buildings.id}` inside the subquery, but
+     when an `sql` chunk is consumed by `.select()` Drizzle drops the
+     table qualifiers — it emits `where "building_id" = "id"`, which
+     in the subquery's scope resolves both columns against `units` and
+     returns 0 for every building. Order-by works correctly because
+     re-wrapping the chunk in `sql\`${expr} desc\`` makes Drizzle treat
+     it as raw SQL and preserve qualifiers.
+  3. Fix: hard-code the subqueries with literal `public.units` /
+     `public.tickets` and `public.buildings.id` for the outer-row
+     reference. No interpolation in the subqueries means no
+     stripping. Verified counts now match
+     `select count(*) from public.units where building_id = …` per
+     building (Glamour 67, Burhani 50, Safavi 42 — sanity-checked
+     against a direct count query).
+- **Why:** The 500 blocked the whole /admin/buildings page; the silent
+  0-count bug would have shipped wrong sort orders.
+- **Tradeoffs / gotchas:**
+  - **Two correlated subqueries per row.** N row scans of `units` + N
+    scans of `tickets`. Fine for ~125 buildings; if this grows past a
+    few thousand, swap to a single GROUP BY join in a subselect (will
+    need explicit alias handling).
+  - **Hard-coded schema name** (`public.`). Matches the pattern used
+    elsewhere in this codebase ([login/actions.ts](src/app/(auth)/login/actions.ts),
+    [tenant-credentials/page.tsx](src/app/(authed)/admin/staff/tenant-credentials/page.tsx)).
+    Project is single-schema, so safe.
+  - **Drizzle quirk worth remembering for future work:** `sql` chunks
+    inside `.select({…})` projections lose table qualifiers; the same
+    chunk used inside another `sql\`…\`` keeps them. When you need
+    correlated subqueries in a projection, write them as literal SQL.
+- **Verification:** Reproduced the 500 locally via a tsx test script
+  (logs showed `"buildings"."archived_at"` vs `from "buildings" b`
+  mismatch). After fix: `tsx` test reports 125 active rows, 0
+  archived, top-by-units matches direct count. `tsc --noEmit` and
+  `next build` clean.
+
 ### 2026-05-21 — clean_relations.mjs: handle drizzle-kit's newer `one({…})` shape
 
 - **What:** [scripts/clean_relations.mjs](scripts/clean_relations.mjs)

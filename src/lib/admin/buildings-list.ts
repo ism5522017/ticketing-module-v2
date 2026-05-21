@@ -1,7 +1,7 @@
 import "server-only";
-import { asc, desc, eq, isNotNull, isNull, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, isNotNull, isNull, sql, type SQL } from "drizzle-orm";
 import { db } from "@/db/client";
-import { buildings, tickets, units } from "@/db/schema";
+import { buildings } from "@/db/schema";
 
 export interface AdminBuildingRow {
   id: string;
@@ -36,6 +36,16 @@ export interface ListBuildingsParams {
   sort?: BuildingSort;
 }
 
+/**
+ * Correlated subqueries for the unit/ticket counts. Literal `public.*`
+ * names because Drizzle drops table qualifiers when an `sql` chunk is
+ * emitted inside a `.select()` projection — `${units.buildingId} =
+ * ${buildings.id}` would collapse to `"building_id" = "id"` and the
+ * subquery would resolve both columns against `units`, returning 0.
+ */
+const unitCountSql = sql<number>`(select count(*)::int from public.units where public.units.building_id = public.buildings.id)`;
+const ticketCountSql = sql<number>`(select count(*)::int from public.tickets where public.tickets.building_id = public.buildings.id)`;
+
 function orderClause(sort: BuildingSort): SQL {
   switch (sort) {
     case "name_desc":
@@ -45,13 +55,13 @@ function orderClause(sort: BuildingSort): SQL {
     case "created_asc":
       return asc(buildings.createdAt);
     case "units_desc":
-      return sql`unit_count desc nulls last`;
+      return sql`${unitCountSql} desc nulls last`;
     case "units_asc":
-      return sql`unit_count asc nulls last`;
+      return sql`${unitCountSql} asc nulls last`;
     case "tickets_desc":
-      return sql`ticket_count desc nulls last`;
+      return sql`${ticketCountSql} desc nulls last`;
     case "tickets_asc":
-      return sql`ticket_count asc nulls last`;
+      return sql`${ticketCountSql} asc nulls last`;
     case "name_asc":
     default:
       return asc(buildings.name);
@@ -70,54 +80,24 @@ export async function listAdminBuildings(
   if (params.city) conditions.push(eq(buildings.city, params.city));
   if (params.locality) conditions.push(eq(buildings.locality, params.locality));
 
-  const whereClause = conditions.length === 0
-    ? sql`true`
-    : sql.join(conditions, sql` and `);
-
-  const rows = await db.execute<{
-    id: string;
-    name: string;
-    locality: string | null;
-    city: string | null;
-    state: string | null;
-    address: string | null;
-    category: string | null;
-    code: string | null;
-    unit_count: number;
-    ticket_count: number;
-    created_at: string;
-    archived_at: string | null;
-  }>(
-    sql`
-      select
-        b.id,
-        b.name,
-        b.locality,
-        b.city,
-        b.state,
-        b.address,
-        b.category,
-        b.code,
-        coalesce(u.unit_count, 0)::int as unit_count,
-        coalesce(t.ticket_count, 0)::int as ticket_count,
-        b.created_at,
-        b.archived_at
-      from ${buildings} b
-      left join (
-        select building_id, count(*)::int as unit_count
-        from ${units}
-        group by building_id
-      ) u on u.building_id = b.id
-      left join (
-        select building_id, count(*)::int as ticket_count
-        from ${tickets}
-        where building_id is not null
-        group by building_id
-      ) t on t.building_id = b.id
-      where ${whereClause}
-      order by ${orderClause(sort)}
-    `,
-  );
+  const rows = await db
+    .select({
+      id: buildings.id,
+      name: buildings.name,
+      locality: buildings.locality,
+      city: buildings.city,
+      state: buildings.state,
+      address: buildings.address,
+      category: buildings.category,
+      code: buildings.code,
+      unitCount: unitCountSql,
+      ticketCount: ticketCountSql,
+      createdAt: buildings.createdAt,
+      archivedAt: buildings.archivedAt,
+    })
+    .from(buildings)
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .orderBy(orderClause(sort));
 
   return rows.map((r) => ({
     id: r.id,
@@ -128,10 +108,10 @@ export async function listAdminBuildings(
     address: r.address,
     category: r.category,
     code: r.code,
-    unitCount: r.unit_count,
-    ticketCount: r.ticket_count,
-    createdAt: String(r.created_at),
-    archivedAt: r.archived_at ? String(r.archived_at) : null,
+    unitCount: Number(r.unitCount ?? 0),
+    ticketCount: Number(r.ticketCount ?? 0),
+    createdAt: String(r.createdAt),
+    archivedAt: r.archivedAt ? String(r.archivedAt) : null,
   }));
 }
 
