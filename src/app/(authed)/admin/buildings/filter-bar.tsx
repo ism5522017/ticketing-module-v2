@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTransition } from "react";
+import { Input } from "@/components/ui/input";
 import type { BuildingSort } from "@/lib/admin/buildings-list";
 
 const SORT_OPTIONS: { value: BuildingSort; label: string }[] = [
@@ -94,6 +95,18 @@ export function BuildingsFilterBar({
             <option key={o.value} value={o.value}>{o.label}</option>
           ))}
         </select>
+      </div>
+      <div className="min-w-[240px] flex-1">
+        <label className="block text-deh-xs uppercase tracking-wide text-deh-muted">Search</label>
+        <Input
+          defaultValue={params.get("q") ?? ""}
+          placeholder="Name, locality, city, or address"
+          disabled={isPending}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") setParam("q", (e.target as HTMLInputElement).value);
+          }}
+          onBlur={(e) => setParam("q", e.target.value)}
+        />
       </div>
     </div>
   );

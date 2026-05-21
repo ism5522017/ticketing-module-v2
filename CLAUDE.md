@@ -458,6 +458,67 @@ approval and a Changelog entry that records the scope expansion.
 
 Newest at the top. ISO dates. Follow the format in §2.
 
+### 2026-05-21 — Properties search bar + Add-Khidmat-Guzar can create new flats
+
+- **What:**
+  - **Properties search**:
+    [src/lib/admin/buildings-list.ts](src/lib/admin/buildings-list.ts)
+    `ListBuildingsParams` gains a `search?: string` field; when set,
+    the WHERE clause adds an `or(ilike(name), ilike(locality),
+    ilike(city), ilike(address))` group.
+    [src/app/(authed)/admin/buildings/page.tsx](src/app/%28authed%29/admin/buildings/page.tsx)
+    reads `?q=` from searchParams.
+    [src/app/(authed)/admin/buildings/filter-bar.tsx](src/app/%28authed%29/admin/buildings/filter-bar.tsx)
+    adds a flexible-width search Input matching the
+    [tenants filter-bar](src/app/%28authed%29/admin/staff/tenants/filter-bar.tsx)
+    pattern (Enter / blur → push searchParams via `useTransition`).
+  - **Add-Khidmat-Guzar — hybrid flat picker**:
+    [src/app/(authed)/admin/staff/tenants/new-tenant-form.tsx](src/app/%28authed%29/admin/staff/tenants/new-tenant-form.tsx)
+    keeps the existing unit dropdown (loaded via the still-exported
+    `listUnitsForBuildingAction`) and adds a sentinel `— New flat —`
+    option at the bottom. Selecting it reveals two text inputs (new
+    wing optional, new flat number required). Empty buildings now
+    work — the dropdown is empty but the "New flat" option is always
+    present once a building is selected.
+    [actions.ts](src/app/%28authed%29/admin/staff/tenants/actions.ts)
+    `CreateTenantInput` now accepts EITHER `unitId` (existing path) OR
+    `(wing?, flat)` (new path). When `unitId` is absent the
+    transaction calls `ensureUnit(tx, buildingId, wing, flat)` —
+    matching the tenant-onboarding find-or-create flow so admin- and
+    self-created tenants converge on the same unit row when the slot
+    already exists.
+- **Why:**
+  - User added several new properties through the new /admin/buildings
+    page, then went to add a Khidmat Guzar to one and found the Unit
+    dropdown empty (no units existed for those buildings yet) — with
+    no way to add a flat. Hybrid form solves it without needing a
+    separate units-management screen, and keeps the dropdown for the
+    common case (building already populated).
+  - Search bar was an explicit ask, mirrors the search affordance the
+    admin /admin/staff/tenants page already has.
+- **Tradeoffs / gotchas:**
+  - **Sentinel value `"__new__"`** for the "New flat" option. Could
+    collide with a real unit UUID in theory; in practice unit IDs are
+    UUIDs so the collision is impossible. The action treats the value
+    as "no unitId" by checking `input.unitId` truthy AND not the
+    sentinel — actually the form omits `unitId` when the sentinel is
+    chosen, so the server never sees `"__new__"`. Safe either way.
+  - **`listUnitsForBuildingAction` still exported.** Used by the
+    inline-edit row on the same page (changing an existing tenant's
+    unit) — different use case from create. Keep it.
+  - **Shared-flat semantics preserved.** `ensureUnit` is find-or-create
+    on `(building_id, lower(coalesce(wing,'')), lower(coalesce(flat,'')))`,
+    so two tenants created against the same wing/flat will share the
+    same unit row. Matches the existing shared-flat data
+    ([2026-05-14 entry](#2026-05-14--shared-flat-handling--expanded-onboarding)).
+  - **Search uses 4 `ilike` columns**: name + locality + city +
+    address. Postgres can use the existing `buildings_locality_idx`
+    and `buildings_city_idx` but only for prefix matches; `%foo%`
+    forces a seq scan. Fine for ~125 rows; revisit if the table grows
+    past low-thousands.
+- **Verification:** `tsc --noEmit` clean, `next build` clean. Manual
+  browser test not yet done.
+
 ### 2026-05-21 — Fix /admin/buildings 500 (Drizzle alias + projection-subquery bugs)
 
 - **What:** Two-stage rewrite of [src/lib/admin/buildings-list.ts](src/lib/admin/buildings-list.ts).

@@ -48,10 +48,11 @@ export default async function BuildingsPage({
   const status = parseStatus(sp.status);
   const city = typeof sp.city === "string" ? sp.city : undefined;
   const locality = typeof sp.locality === "string" ? sp.locality : undefined;
+  const search = typeof sp.q === "string" && sp.q.trim().length > 0 ? sp.q.trim() : undefined;
   const sort = parseSort(sp.sort);
 
   const [rows, locations] = await Promise.all([
-    listAdminBuildings({ status, city, locality, sort }),
+    listAdminBuildings({ status, city, locality, search, sort }),
     listBuildingLocations(),
   ]);
 

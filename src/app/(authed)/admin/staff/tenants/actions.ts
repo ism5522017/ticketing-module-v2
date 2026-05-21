@@ -10,6 +10,7 @@ import {
   type StaffMutationResult,
 } from "@/lib/admin/staff-mutations";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { ensureUnit } from "@/lib/tenants/ensure-unit";
 
 const ROUTE = "/admin/staff/tenants";
 
@@ -54,7 +55,12 @@ function synthesizeTenantEmail(buildingName: string, flat: string | null): strin
 
 interface CreateTenantInput {
   buildingId: string;
-  unitId: string;
+  /** Existing unit to attach to. If omitted, wing+flat are used to find-or-create one. */
+  unitId?: string;
+  /** Optional wing — only consulted when unitId is omitted. */
+  wing?: string;
+  /** Flat number — required when unitId is omitted. */
+  flat?: string;
   name: string;
   email?: string;
   phone?: string;
@@ -71,22 +77,41 @@ export async function createTenantAction(
   const name = input.name.trim();
   if (name.length < 2) return { ok: false, error: "Enter the Khidmat Guzar's name." };
 
-  // Validate unit belongs to building (defense-in-depth — UI filters by building).
-  const unitRows = await db
-    .select({
-      id: units.id,
-      flat: units.flat,
-      buildingId: units.buildingId,
-      buildingName: buildings.name,
-    })
-    .from(units)
-    .innerJoin(buildings, eq(buildings.id, units.buildingId))
-    .where(eq(units.id, input.unitId))
+  // Building must exist (and not be archived — the dropdown already
+  // filters, but defense-in-depth).
+  const buildingRows = await db
+    .select({ id: buildings.id, name: buildings.name, archivedAt: buildings.archivedAt })
+    .from(buildings)
+    .where(eq(buildings.id, input.buildingId))
     .limit(1);
-  const unitRow = unitRows[0];
-  if (!unitRow) return { ok: false, error: "Unit not found." };
-  if (unitRow.buildingId !== input.buildingId) {
-    return { ok: false, error: "Selected unit doesn't belong to that building." };
+  const buildingRow = buildingRows[0];
+  if (!buildingRow) return { ok: false, error: "Building not found." };
+  if (buildingRow.archivedAt) return { ok: false, error: "That building is archived." };
+
+  // Resolve the unit: either an existing one (validate it belongs to this
+  // building) or find-or-create from (wing, flat). flatForEmail is used
+  // for the email synth path below — whichever branch wins owns it.
+  let resolvedUnitId: string | null = null;
+  let flatForEmail: string | null = null;
+  if (input.unitId) {
+    const unitRows = await db
+      .select({ id: units.id, buildingId: units.buildingId, flat: units.flat })
+      .from(units)
+      .where(eq(units.id, input.unitId))
+      .limit(1);
+    const unitRow = unitRows[0];
+    if (!unitRow) return { ok: false, error: "Unit not found." };
+    if (unitRow.buildingId !== input.buildingId) {
+      return { ok: false, error: "Selected flat doesn't belong to that building." };
+    }
+    resolvedUnitId = unitRow.id;
+    flatForEmail = unitRow.flat;
+  } else {
+    const flat = (input.flat ?? "").trim();
+    if (!flat) return { ok: false, error: "Enter the flat number or pick an existing one." };
+    flatForEmail = flat;
+    // Defer the actual ensureUnit call into the insert transaction below
+    // so a failure rolls back any partial work cleanly.
   }
 
   const rawEmail = (input.email ?? "").trim().toLowerCase();
@@ -94,7 +119,7 @@ export async function createTenantAction(
   if (email) {
     if (!EMAIL_RE.test(email)) return { ok: false, error: "Enter a valid email or leave blank." };
   } else {
-    email = synthesizeTenantEmail(unitRow.buildingName, unitRow.flat);
+    email = synthesizeTenantEmail(buildingRow.name, flatForEmail);
   }
 
   const dupes = await db.execute<{ id: string }>(
@@ -126,6 +151,13 @@ export async function createTenantAction(
 
   try {
     await db.transaction(async (tx) => {
+      // If we didn't resolve an existing unit upstream, find-or-create
+      // one now inside the same transaction as the user/tenant inserts.
+      // ensureUnit matches the tenant-onboarding path so admin-created
+      // and self-onboarded tenants converge on the same row when the
+      // (wing, flat) slot already exists.
+      const unitId = resolvedUnitId
+        ?? (await ensureUnit(tx, input.buildingId, (input.wing ?? "").trim(), (input.flat ?? "").trim())).id;
       await tx.insert(users).values({
         id: userId,
         role: "tenant",
@@ -142,7 +174,7 @@ export async function createTenantAction(
         email,
         contact: input.contact?.trim() || null,
         passwordDigest: "",
-        unitId: input.unitId,
+        unitId,
         mustChangePassword: true,
         phone,
         active: true,

@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, desc, eq, isNotNull, isNull, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, isNotNull, isNull, or, sql, type SQL } from "drizzle-orm";
 import { db } from "@/db/client";
 import { buildings } from "@/db/schema";
 
@@ -33,6 +33,8 @@ export interface ListBuildingsParams {
   status?: "active" | "archived" | "all";
   city?: string;
   locality?: string;
+  /** Substring match against name/locality/city/address (case-insensitive). */
+  search?: string;
   sort?: BuildingSort;
 }
 
@@ -79,6 +81,17 @@ export async function listAdminBuildings(
   if (status === "archived") conditions.push(isNotNull(buildings.archivedAt));
   if (params.city) conditions.push(eq(buildings.city, params.city));
   if (params.locality) conditions.push(eq(buildings.locality, params.locality));
+  if (params.search) {
+    const pattern = `%${params.search.trim()}%`;
+    conditions.push(
+      or(
+        ilike(buildings.name, pattern),
+        ilike(buildings.locality, pattern),
+        ilike(buildings.city, pattern),
+        ilike(buildings.address, pattern),
+      )!,
+    );
+  }
 
   const rows = await db
     .select({
