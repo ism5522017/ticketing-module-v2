@@ -4,7 +4,7 @@ import { UserMenu } from "./user-menu";
 type Role = "tenant" | "admin" | "manager" | "dr";
 
 const ROLE_SUBTEXT: Record<Role, string> = {
-  tenant: "Tenant",
+  tenant: "Khidmat Guzar",
   admin: "Admin",
   manager: "Manager",
   dr: "DR",

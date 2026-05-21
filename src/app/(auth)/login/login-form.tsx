@@ -121,11 +121,11 @@ export function LoginForm({ buildings }: { buildings: LoginBuildingOption[] }) {
       <div role="tablist" className="mb-6 grid grid-cols-2 rounded-deh-pill bg-deh-gray-bg p-1">
         <TabButton active={tab === "tenant"} onClick={() => switchTab("tenant")}>
           <Building className="h-4 w-4" />
-          Tenant
+          Khidmat Guzar
         </TabButton>
         <TabButton active={tab === "staff"} onClick={() => switchTab("staff")}>
           <UserRound className="h-4 w-4" />
-          Staff
+          Office
         </TabButton>
       </div>
 

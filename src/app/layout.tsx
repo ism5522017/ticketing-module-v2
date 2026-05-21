@@ -20,7 +20,7 @@ const displayFont = Plus_Jakarta_Sans({
 
 export const metadata: Metadata = {
   title: "DEH Maintenance",
-  description: "Ticketing & maintenance workflows for DEH residents and staff.",
+  description: "Ticketing & maintenance workflows for DEH residents and Office.",
 };
 
 export default function RootLayout({

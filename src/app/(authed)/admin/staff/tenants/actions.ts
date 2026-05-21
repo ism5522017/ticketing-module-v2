@@ -69,7 +69,7 @@ export async function createTenantAction(
   if (!g.ok) return g;
 
   const name = input.name.trim();
-  if (name.length < 2) return { ok: false, error: "Enter the tenant's name." };
+  if (name.length < 2) return { ok: false, error: "Enter the Khidmat Guzar's name." };
 
   // Validate unit belongs to building (defense-in-depth — UI filters by building).
   const unitRows = await db
@@ -101,7 +101,7 @@ export async function createTenantAction(
     sql`select id from public.tenants where lower(email) = lower(${email}) limit 1`,
   );
   if (dupes.length > 0) {
-    return { ok: false, error: `A tenant with email "${email}" already exists.` };
+    return { ok: false, error: `A Khidmat Guzar with email "${email}" already exists.` };
   }
 
   const phone = normalizePhone(input.phone);
@@ -151,7 +151,7 @@ export async function createTenantAction(
     });
   } catch (e) {
     await supabaseAdmin.auth.admin.deleteUser(userId).catch(() => {});
-    return { ok: false, error: e instanceof Error ? e.message : "Couldn't save tenant." };
+    return { ok: false, error: e instanceof Error ? e.message : "Couldn't save Khidmat Guzar." };
   }
 
   revalidatePath(ROUTE);
@@ -184,12 +184,12 @@ export async function updateTenantAction(
     .where(eq(tenants.id, input.tenantId))
     .limit(1);
   const row = rows[0];
-  if (!row) return { ok: false, error: "Tenant not found." };
+  if (!row) return { ok: false, error: "Khidmat Guzar not found." };
 
   const patch: Record<string, unknown> = {};
   if (input.name !== undefined) {
     const name = input.name.trim();
-    if (name.length < 2) return { ok: false, error: "Enter the tenant's name." };
+    if (name.length < 2) return { ok: false, error: "Enter the Khidmat Guzar's name." };
     patch.name = name;
   }
   if (input.email !== undefined) {
@@ -262,7 +262,7 @@ export async function setTenantActiveAction(input: {
     .where(eq(tenants.id, input.tenantId))
     .limit(1);
   const row = rows[0];
-  if (!row) return { ok: false, error: "Tenant not found." };
+  if (!row) return { ok: false, error: "Khidmat Guzar not found." };
 
   await db.transaction(async (tx) => {
     await tx.update(tenants).set({ active: input.active }).where(eq(tenants.id, input.tenantId));
@@ -285,7 +285,7 @@ export async function resetTenantPasswordAction(input: {
     .where(eq(tenants.id, input.tenantId))
     .limit(1);
   const userId = rows[0]?.userId;
-  if (!userId) return { ok: false, error: "Tenant has no linked auth user. Re-run migrate-users." };
+  if (!userId) return { ok: false, error: "Khidmat Guzar has no linked auth user. Re-run migrate-users." };
 
   const supabaseAdmin = createAdminClient();
   const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, {

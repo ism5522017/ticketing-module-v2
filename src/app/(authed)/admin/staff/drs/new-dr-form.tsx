@@ -43,7 +43,7 @@ export function NewDrForm({ buildings }: { buildings: BuildingSummary[] }) {
     e.preventDefault();
     setMessage(null);
     if (!buildingId || !tenantId) {
-      setMessage({ kind: "err", text: "Choose a building and a tenant." });
+      setMessage({ kind: "err", text: "Choose a building and a Khidmat Guzar." });
       return;
     }
     startTransition(async () => {
@@ -102,7 +102,7 @@ export function NewDrForm({ buildings }: { buildings: BuildingSummary[] }) {
           </select>
         </div>
         <div>
-          <Label htmlFor="tenant">Tenant (must live in that building)</Label>
+          <Label htmlFor="tenant">Khidmat Guzar (must live in that building)</Label>
           <select
             id="tenant"
             value={tenantId}
@@ -117,8 +117,8 @@ export function NewDrForm({ buildings }: { buildings: BuildingSummary[] }) {
                 : loadingTenants
                   ? "Loading…"
                   : tenantOptions.length === 0
-                    ? "No active tenants in this building"
-                    : "Select a tenant…"}
+                    ? "No active Khidmat Guzars in this building"
+                    : "Select a Khidmat Guzar…"}
             </option>
             {tenantOptions.map((t) => (
               <option key={t.id} value={t.id}>{t.label}</option>

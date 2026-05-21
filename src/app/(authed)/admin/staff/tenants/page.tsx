@@ -58,9 +58,9 @@ export default async function TenantsPage({
   return (
     <div>
       <header className="mb-6">
-        <h1 className="text-deh-xl font-bold text-deh-dark">Tenants</h1>
+        <h1 className="text-deh-xl font-bold text-deh-dark">Khidmat Guzars</h1>
         <p className="text-deh-sm text-deh-muted">
-          Manage tenant accounts. Search filters work on name, email, wing, and flat.
+          Manage Khidmat Guzar accounts. Search filters work on name, email, wing, and flat.
           Disabling soft-deletes — auth identity stays, login blocked.
         </p>
       </header>
@@ -88,7 +88,7 @@ export default async function TenantsPage({
           </thead>
           <tbody>
             {rows.length === 0 ? (
-              <tr><td colSpan={8} className="px-3 py-4 text-deh-sm italic text-deh-muted">No tenants match these filters.</td></tr>
+              <tr><td colSpan={8} className="px-3 py-4 text-deh-sm italic text-deh-muted">No Khidmat Guzars match these filters.</td></tr>
             ) : rows.map((r) => <TenantRow key={r.id} row={r} />)}
           </tbody>
         </table>

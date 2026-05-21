@@ -81,7 +81,7 @@ export function NewTenantForm({ buildings }: { buildings: BuildingSummary[] }) {
   if (!open) {
     return (
       <div className="mb-4">
-        <Button onClick={() => setOpen(true)}>+ Add tenant</Button>
+        <Button onClick={() => setOpen(true)}>+ Add Khidmat Guzar</Button>
       </div>
     );
   }
@@ -135,7 +135,7 @@ export function NewTenantForm({ buildings }: { buildings: BuildingSummary[] }) {
           </select>
         </div>
         <div>
-          <Label htmlFor="name">Tenant name</Label>
+          <Label htmlFor="name">Khidmat Guzar name</Label>
           <Input id="name" value={name} onChange={(e) => setName(e.target.value)} disabled={isPending} required />
         </div>
         <div>
@@ -170,7 +170,7 @@ export function NewTenantForm({ buildings }: { buildings: BuildingSummary[] }) {
       </div>
       <div className="mt-3 flex items-center gap-2">
         <Button type="submit" disabled={isPending}>
-          {isPending ? "Creating…" : "Create tenant"}
+          {isPending ? "Creating…" : "Create Khidmat Guzar"}
         </Button>
         <Button
           type="button"

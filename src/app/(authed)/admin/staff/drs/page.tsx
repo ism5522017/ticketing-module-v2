@@ -20,7 +20,7 @@ export default async function DrsPage() {
       <header className="mb-6">
         <h1 className="text-deh-xl font-bold text-deh-dark">Designated Residents</h1>
         <p className="text-deh-sm text-deh-muted">
-          One active DR per building. The DR must be a tenant of the building they represent.
+          One active DR per building. The DR must be a Khidmat Guzar of the building they represent.
         </p>
       </header>
 
@@ -32,7 +32,7 @@ export default async function DrsPage() {
           <thead className="text-deh-xs uppercase tracking-wide text-deh-muted">
             <tr className="border-b border-deh-border">
               <th className="px-3 py-2 text-left font-semibold">Building</th>
-              <th className="px-3 py-2 text-left font-semibold">Tenant</th>
+              <th className="px-3 py-2 text-left font-semibold">Khidmat Guzar</th>
               <th className="px-3 py-2 text-left font-semibold">Username</th>
               <th className="px-3 py-2 text-left font-semibold">Status</th>
               <th className="px-3 py-2 text-left font-semibold">Period</th>
@@ -54,7 +54,7 @@ export default async function DrsPage() {
             <thead className="text-deh-xs uppercase tracking-wide text-deh-muted">
               <tr className="border-b border-deh-border">
                 <th className="px-3 py-2 text-left font-semibold">Building</th>
-                <th className="px-3 py-2 text-left font-semibold">Tenant</th>
+                <th className="px-3 py-2 text-left font-semibold">Khidmat Guzar</th>
                 <th className="px-3 py-2 text-left font-semibold">Username</th>
                 <th className="px-3 py-2 text-left font-semibold">Status</th>
                 <th className="px-3 py-2 text-left font-semibold">Period</th>

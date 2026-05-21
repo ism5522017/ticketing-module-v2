@@ -124,7 +124,7 @@ export async function confirmProfile(input: ConfirmProfileInput): Promise<Action
       .where(eq(tenants.userId, authUser.id))
       .limit(1);
     const tenantId = tenantRows[0]?.tenantId;
-    if (!tenantId) return { ok: false, error: "No tenant record linked to your account." };
+    if (!tenantId) return { ok: false, error: "No Khidmat Guzar record linked to your account." };
 
     const location = (input.location ?? "").trim();
     const wing = (input.wing ?? "").trim();

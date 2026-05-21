@@ -61,7 +61,7 @@ export function ProfileCard({ profile }: { profile: TenantProfile }) {
   }
 
   const badge = optimisticProfile.locationEdited
-    ? { label: "edited by tenant", className: "bg-deh-light-orange text-deh-dark-orange" }
+    ? { label: "edited by Khidmat Guzar", className: "bg-deh-light-orange text-deh-dark-orange" }
     : { label: "auto-filled", className: "bg-deh-light-green text-deh-green" };
 
   return (

@@ -355,7 +355,9 @@ export const buildings = pgTable("buildings", {
 	state: text(),
 	category: text(),
 	code: text(),
+	archivedAt: timestamp("archived_at", { withTimezone: true, mode: 'string' }),
 }, (table) => [
+	index("buildings_archived_at_idx").using("btree", table.archivedAt.asc().nullsLast().op("timestamptz_ops")).where(sql`(archived_at IS NOT NULL)`),
 	index("buildings_city_idx").using("btree", table.city.asc().nullsLast().op("text_ops")),
 	uniqueIndex("buildings_code_upper_idx").using("btree", sql`upper(code)`).where(sql`(code IS NOT NULL)`),
 	index("buildings_locality_idx").using("btree", table.locality.asc().nullsLast().op("text_ops")),

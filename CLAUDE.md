@@ -458,6 +458,198 @@ approval and a Changelog entry that records the scope expansion.
 
 Newest at the top. ISO dates. Follow the format in §2.
 
+### 2026-05-21 — clean_relations.mjs: handle drizzle-kit's newer `one({…})` shape
+
+- **What:** [scripts/clean_relations.mjs](scripts/clean_relations.mjs)
+  regex on step 2 widened from `one\(usersInAuth,\s*\{[^}]*\}\)` to
+  `one\((?:usersInAuth,\s*)?\{[^}]*\}\)` so it matches both the old
+  `one(usersInAuth, { … })` form and the new `one({ … })` form that
+  drizzle-kit emits today.
+- **Why:** Running `npm run db:pull` after the
+  20260521000001 migration produced a relations.ts that the cleanup
+  script could no longer fix — the `usersInAuth` import was stripped
+  but the relation block survived, leaving an undefined identifier and
+  failing `tsc --noEmit`.
+- **Tradeoffs / gotchas:** None. The widened regex still matches the
+  old shape, so historical compatibility is preserved.
+- **Verification:** Re-ran `node scripts/clean_relations.mjs` against
+  the broken relations.ts; `npm run typecheck` and `npm run build`
+  clean afterward.
+
+### 2026-05-21 — Admin properties (buildings) CRUD + soft-delete + CSV import
+
+- **What:**
+  - **Migration**
+    [supabase/migrations/20260521000001_buildings_archived_at.sql](supabase/migrations/20260521000001_buildings_archived_at.sql)
+    adds `buildings.archived_at timestamptz null` + a partial index
+    (`buildings_archived_at_idx` where `archived_at is not null`). Pure
+    additive. **Must be applied via the Supabase SQL Editor before the
+    new UI works** — the page reads `archived_at` and `listBuildings()`
+    filters on it.
+  - **Schema** [src/db/schema.ts](src/db/schema.ts) hand-edited to add
+    `archivedAt` + the index. Future `npm run db:pull` will overwrite
+    this identically once the migration has been applied live.
+  - **New admin route** at `src/app/(authed)/admin/buildings/`:
+    - [page.tsx](src/app/(authed)/admin/buildings/page.tsx) — server-rendered
+      list with status filter (Active / Archived / All), city + locality
+      dropdowns, and 8 sort options (name asc/desc, date asc/desc,
+      units asc/desc, tickets asc/desc).
+    - [actions.ts](src/app/(authed)/admin/buildings/actions.ts) —
+      `createBuildingAction`, `updateBuildingAction`,
+      `archiveBuildingAction`, `restoreBuildingAction`,
+      `importBuildingsCsvAction`. All gated on admin session. All bust
+      both the `buildings` cache tag and revalidate `/admin/buildings`.
+    - [new-building-form.tsx](src/app/(authed)/admin/buildings/new-building-form.tsx) —
+      collapsible inline create form (mirrors the new-tenant-form
+      pattern).
+    - [building-row.tsx](src/app/(authed)/admin/buildings/building-row.tsx) —
+      inline edit with Save/Cancel; Archive button shows a native
+      `confirm()` warning; archived rows render dimmed with a Restore
+      button instead of Edit/Archive.
+    - [filter-bar.tsx](src/app/(authed)/admin/buildings/filter-bar.tsx) —
+      client component pushing searchParams via `router.push` inside a
+      `useTransition` (matches the existing admin tenants FilterBar).
+    - [csv-import.tsx](src/app/(authed)/admin/buildings/csv-import.tsx) —
+      collapsible CSV upload (file picker + paste box). Header row must
+      contain `name`; `locality, city, state, address, category` are
+      optional. Duplicates (same lower-cased name within the society)
+      are skipped per-row with a reason; result toast shows
+      inserted count + an expandable list of skipped lines.
+  - **List lib** [src/lib/admin/buildings-list.ts](src/lib/admin/buildings-list.ts)
+    — `listAdminBuildings({ status, city, locality, sort })` runs a
+    single raw-SQL `select … left join (count units) … left join
+    (count tickets where building_id is not null)` so the counts come
+    back in one round-trip and are sortable by Postgres. Also exports
+    `listBuildingLocations()` for the filter dropdowns (distinct city +
+    locality from non-archived rows only).
+  - **Cached dropdown list** [src/lib/buildings/list.ts](src/lib/buildings/list.ts)
+    — `listBuildings()` now `where(isNull(buildings.archivedAt))` so
+    archived buildings disappear from the login picker, tenant-create
+    dropdown, DR-create dropdown, and credentials filter. The new
+    actions call `revalidateBuildings()` after every mutation to bust
+    the 5-minute cache.
+  - **Sidebar** [src/components/shared/sidebar.tsx](src/components/shared/sidebar.tsx)
+    gets a `{ href: "/admin/buildings", label: "Properties", icon: Building2 }`
+    entry between Budgets and Admins. The `Building2` icon import was
+    previously removed (2026-05-19 entry when the codes page was deleted)
+    — re-added.
+
+- **Why:** User asked for in-app property management with traditional
+  sort/filter controls. Previously the only way to add a building was
+  through the live SQL editor (or as a side-effect of `ensureBuilding`
+  when a tenant's building-name didn't match an existing row). User
+  wants admins to manage the building list directly + a bulk-import
+  path for setting up new societies.
+
+- **Tradeoffs / gotchas:**
+  - **Soft-delete, not hard-delete.** `units.building_id` and
+    `tickets.building_id` are both `ON DELETE RESTRICT`, so a hard delete
+    would fail for any building that ever had a unit or a ticket.
+    Archived rows stay in the DB; `listBuildings()` hides them from
+    selectable surfaces. Historical tickets/units stay linked.
+  - **CSV parser is hand-rolled** in
+    [actions.ts](src/app/(authed)/admin/buildings/actions.ts)
+    (`parseCsvLine`). It handles quoted fields and escaped `""` quotes
+    but does NOT handle newlines inside quoted fields. The admin
+    audience and the fixed format make this acceptable; pulling in
+    `papaparse` would add ~45 KB to the server bundle for a corner case
+    nobody's hitting. Swap to papaparse if a future user reports broken
+    imports from Excel-exported CSVs with multi-line cells.
+  - **Society scoping.** All new buildings are inserted under
+    `Default Society` (via `ensureDefaultSociety`). The unique constraint
+    is `(society_id, lower(name))`, so two buildings can have the same
+    name across societies but not within one. Since V2 is single-society
+    today, this is functionally just "name must be unique."
+  - **Schema hand-edit.** §6 says "Never edit `src/db/schema.ts` by
+    hand." Done here anyway because the new code references
+    `buildings.archivedAt` and `db:pull` requires the migration to be
+    applied live first. The next `db:pull` after the migration is
+    applied will regenerate the file identically.
+  - **Sort by units/tickets uses raw SQL aliases** (`order by unit_count
+    desc nulls last`) because Drizzle's `desc()` helper can't reference
+    a subquery alias. The orderClause helper switches between Drizzle
+    column refs (for name/createdAt) and raw `sql\`…\`` (for the counts).
+  - **`code` column is still kept** (per 2026-05-19 entry). The create
+    form does not expose it; the row does not render it. Existing rows
+    with a populated code from the 2026-05-13 backfill are untouched.
+
+- **Verification:** `npm run typecheck` clean. `npm run build` clean —
+  route table confirms `/admin/buildings` registered as a dynamic route.
+  Manual browser test not yet done. **Action required before this works
+  in prod: apply
+  [supabase/migrations/20260521000001_buildings_archived_at.sql](supabase/migrations/20260521000001_buildings_archived_at.sql)
+  via the Supabase SQL Editor.**
+
+### 2026-05-21 — UI rename: "Tenant" → "Khidmat Guzar", "Staff" → "Office"
+
+- **What:** Display-text-only rename across the signed-in app and the
+  login screen. Every change is JSX text, button label, heading,
+  placeholder, or a user-visible error string — no code identifier,
+  route, DB column, or type-enum value was touched. Files:
+  - [src/app/layout.tsx](src/app/layout.tsx) — meta description.
+  - [src/app/(auth)/login/login-form.tsx](src/app/(auth)/login/login-form.tsx)
+    — "Tenant" tab label → "Khidmat Guzar"; "Staff" tab → "Office".
+  - [src/app/(auth)/login/actions.ts](src/app/(auth)/login/actions.ts)
+    — "Enter your staff username." → "Enter your Office username."
+  - [src/components/shared/sidebar.tsx](src/components/shared/sidebar.tsx)
+    — "Tenants" nav label → "Khidmat Guzars".
+  - [src/components/shared/app-header.tsx](src/components/shared/app-header.tsx)
+    — `ROLE_SUBTEXT.tenant` "Tenant" → "Khidmat Guzar".
+  - [src/app/(authed)/admin/staff/tenants/page.tsx](src/app/(authed)/admin/staff/tenants/page.tsx)
+    — H1 + helper text + empty state.
+  - [src/app/(authed)/admin/staff/tenants/new-tenant-form.tsx](src/app/(authed)/admin/staff/tenants/new-tenant-form.tsx)
+    — "+ Add tenant", "Tenant name" label, "Create tenant" button.
+  - [src/app/(authed)/admin/staff/tenants/actions.ts](src/app/(authed)/admin/staff/tenants/actions.ts)
+    — 6 user-visible error strings.
+  - [src/app/(authed)/admin/staff/tenant-credentials/page.tsx](src/app/(authed)/admin/staff/tenant-credentials/page.tsx)
+    — H1, helper paragraph, column header, empty state, count text.
+  - [src/app/(authed)/admin/staff/drs/page.tsx](src/app/(authed)/admin/staff/drs/page.tsx)
+    — helper text, both "Tenant" column headers (Active + Past DRs tables).
+  - [src/app/(authed)/admin/staff/drs/new-dr-form.tsx](src/app/(authed)/admin/staff/drs/new-dr-form.tsx)
+    — label + 3 placeholder/error strings.
+  - [src/app/(authed)/admin/staff/drs/actions.ts](src/app/(authed)/admin/staff/drs/actions.ts)
+    — residency-check + tenant-not-found errors.
+  - [src/app/(authed)/admin/tickets/admin-ticket-card.tsx](src/app/(authed)/admin/tickets/admin-ticket-card.tsx)
+    — "Tenant:" inline label.
+  - [src/app/(authed)/admin/tickets/directory-shell.tsx](src/app/(authed)/admin/tickets/directory-shell.tsx)
+    — search placeholder.
+  - [src/app/(authed)/manager/dashboard/directory-shell.tsx](src/app/(authed)/manager/dashboard/directory-shell.tsx)
+    — search placeholder.
+  - [src/app/(authed)/manager/dashboard/ticket-card.tsx](src/app/(authed)/manager/dashboard/ticket-card.tsx)
+    — "Tenant:" label + "No tenant on file" empty state.
+  - [src/app/(authed)/tenant/dashboard/profile-card.tsx](src/app/(authed)/tenant/dashboard/profile-card.tsx)
+    — "edited by tenant" badge.
+  - [src/app/(authed)/tenant/dashboard/actions.ts](src/app/(authed)/tenant/dashboard/actions.ts),
+    [src/app/(authed)/tenant/tickets/new/actions.ts](src/app/(authed)/tenant/tickets/new/actions.ts),
+    [src/app/(auth)/onboarding/actions.ts](src/app/(auth)/onboarding/actions.ts)
+    — server-action error strings.
+- **Why:** User wants the in-app vocabulary to use the building's own
+  community terms ("Khidmat Guzar" for residents, "Office" for the
+  staff/admin team).
+- **Tradeoffs / gotchas:**
+  - **Code identifiers stay.** URL paths (`/tenant/*`,
+    `/admin/staff/*`), the `user_role` Postgres enum
+    (`'tenant', 'admin', 'manager', 'dr'`), TypeScript types
+    (`type Role = "tenant" | ...`, `type Tab = "tenant" | "staff"`),
+    Drizzle table names (`tenants`), function names
+    (`getTenantProfileFromSession`, `createStaffMember`,
+    `resolveTenantLogin`), and folder names (`src/app/(authed)/tenant/`,
+    `src/app/(authed)/admin/staff/`) are unchanged. Per the agreed scope:
+    UI text only.
+  - **Plurals.** Used "Khidmat Guzars" for the plural form. Singular
+    matches throughout for grammatical sentences ("Only Khidmat Guzars
+    can…", "No Khidmat Guzar on file").
+  - **Login tab type values** (`Tab = "tenant" | "staff"`) are still
+    `"tenant"` and `"staff"` internally — they're just labels for
+    component state. Labels rendered to the DOM say "Khidmat Guzar"
+    and "Office".
+  - **CLAUDE.md unchanged** in this rename — it documents the
+    architecture (table names, role enums, code conventions) and
+    references the old names because the *code* still uses them.
+- **Verification:** `npm run typecheck` clean, `npm run build` clean
+  (after `rm -rf .next` to clear stale type metadata). Manual browser
+  smoke-test not yet done — recommended before shipping.
+
 ### 2026-05-19 — Tenant login: building autosuggest + flat (drop CODE-FLAT)
 - **What:**
   - [src/app/(auth)/login/login-form.tsx](src/app/(auth)/login/login-form.tsx)

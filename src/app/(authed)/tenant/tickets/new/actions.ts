@@ -29,7 +29,7 @@ export async function createTicket(formData: FormData): Promise<CreateTicketResu
     .where(eq(users.id, authUser.id))
     .limit(1);
   if (meRows[0]?.role !== "tenant") {
-    return { ok: false, error: "Only tenants can raise tickets here." };
+    return { ok: false, error: "Only Khidmat Guzars can raise tickets here." };
   }
 
   const profile = await getTenantProfileFromSession();

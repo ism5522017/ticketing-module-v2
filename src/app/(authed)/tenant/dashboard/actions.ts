@@ -34,7 +34,7 @@ export async function updateTenantProfile(input: UpdateInput): Promise<UpdateRes
     .where(eq(users.id, authUser.id))
     .limit(1);
   if (meRows[0]?.role !== "tenant") {
-    return { ok: false, error: "Only tenants can edit their profile from here." };
+    return { ok: false, error: "Only Khidmat Guzars can edit their profile from here." };
   }
 
   const tenantRows = await db
@@ -53,7 +53,7 @@ export async function updateTenantProfile(input: UpdateInput): Promise<UpdateRes
     .where(eq(tenants.userId, authUser.id))
     .limit(1);
   const current = tenantRows[0];
-  if (!current) return { ok: false, error: "No tenant record found for your account." };
+  if (!current) return { ok: false, error: "No Khidmat Guzar record found for your account." };
 
   const currentLocation = current.buildingAddress
     ? `${current.buildingName ?? ""}, ${current.buildingAddress}`

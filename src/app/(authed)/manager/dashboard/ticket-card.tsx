@@ -145,10 +145,10 @@ export function TicketCard({ ticket }: { ticket: ManagerTicket }) {
       <div className="text-deh-sm text-deh-text">
         {ticket.tenantName ? (
           <span>
-            <span className="font-medium">Tenant:</span> {ticket.tenantName}
+            <span className="font-medium">Khidmat Guzar:</span> {ticket.tenantName}
           </span>
         ) : (
-          <span className="text-deh-muted italic">No tenant on file</span>
+          <span className="text-deh-muted italic">No Khidmat Guzar on file</span>
         )}
         {ticket.scope === "unit" && (ticket.wing || ticket.flat) ? (
           <>

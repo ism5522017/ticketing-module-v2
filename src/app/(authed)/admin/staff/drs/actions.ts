@@ -44,7 +44,7 @@ export async function createDrAction(input: {
     .where(and(eq(tenants.id, input.tenantId), eq(units.buildingId, input.buildingId)))
     .limit(1);
   if (residencyRows.length === 0) {
-    return { ok: false, error: "Selected tenant doesn't live in that building." };
+    return { ok: false, error: "Selected Khidmat Guzar doesn't live in that building." };
   }
 
   // Username uniqueness.
@@ -70,7 +70,7 @@ export async function createDrAction(input: {
     .where(eq(tenants.id, input.tenantId))
     .limit(1);
   const tenantRow = tenantRows[0];
-  if (!tenantRow) return { ok: false, error: "Tenant not found." };
+  if (!tenantRow) return { ok: false, error: "Khidmat Guzar not found." };
 
   const tempPassword = input.password?.trim() || DEFAULT_PASSWORD;
   const supabaseAdmin = createAdminClient();

@@ -104,7 +104,7 @@ export async function resolveTenantLogin(
 
 export async function resolveStaffLogin(input: string): Promise<ResolveResult> {
   if (!USERNAME_RE.test(input.trim())) {
-    return { status: "error", error: "Enter your staff username." };
+    return { status: "error", error: "Enter your Office username." };
   }
 
   const user = await lookupStaff(input);

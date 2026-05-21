@@ -25,8 +25,10 @@ out = out.replace(/,\s*usersInAuth(\s*\}\s*from\s*"\.\/schema";)/, "$1");
 out = out.replace(/usersInAuth\s*,\s*/, "");
 
 // 2. Remove the usersInAuth: one(...) block from usersRelations.
+// Drizzle-kit has emitted two shapes over time: `one(usersInAuth, { … })`
+// (older) and `one({ … })` (newer). Match both.
 out = out.replace(
-  /\n\s*usersInAuth:\s*one\(usersInAuth,\s*\{[^}]*\}\),\n/,
+  /\n\s*usersInAuth:\s*one\((?:usersInAuth,\s*)?\{[^}]*\}\),\n/,
   "\n",
 );
 

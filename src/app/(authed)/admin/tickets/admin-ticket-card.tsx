@@ -57,7 +57,7 @@ export function AdminTicketCard({ ticket }: { ticket: AdminTicket }) {
       <ProgressStepper activeStage={stage} />
 
       <div className="text-deh-sm text-deh-text">
-        <span className="font-medium">Tenant:</span>{" "}
+        <span className="font-medium">Khidmat Guzar:</span>{" "}
         {ticket.tenantName ?? <span className="italic text-deh-muted">—</span>}
         <span className="mx-1.5">·</span>
         <span className="font-medium">Location:</span> {locationText(ticket)}

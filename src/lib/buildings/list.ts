@@ -1,6 +1,6 @@
 import "server-only";
 import { unstable_cache, revalidateTag } from "next/cache";
-import { asc } from "drizzle-orm";
+import { asc, isNull } from "drizzle-orm";
 import { db } from "@/db/client";
 import { buildings } from "@/db/schema";
 
@@ -15,9 +15,11 @@ export interface BuildingSummary {
 const TAG = "buildings";
 
 /**
- * Cached buildings list for any UI dropdown (admin tenant create, DR create,
- * etc.). 5-minute revalidation matches the old app's HTTP cache. Bust via
- * `revalidateBuildings()` after any code/name edit in admin tools.
+ * Cached active-buildings list for every UI dropdown (login picker,
+ * admin tenant/DR create, credentials filter). Archived rows are excluded
+ * so they disappear from selectable surfaces immediately after the admin
+ * archives one. The admin /admin/buildings page reads its own non-cached
+ * list (including archived) directly.
  */
 export const listBuildings = unstable_cache(
   async (): Promise<BuildingSummary[]> => {
@@ -30,6 +32,7 @@ export const listBuildings = unstable_cache(
         city: buildings.city,
       })
       .from(buildings)
+      .where(isNull(buildings.archivedAt))
       .orderBy(asc(buildings.name));
     return rows;
   },

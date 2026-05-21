@@ -101,7 +101,7 @@ export function DirectoryShell({ tickets }: { tickets: AdminTicket[] }) {
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search tenant, building, type, or TK-id…"
+          placeholder="Search Khidmat Guzar, building, type, or TK-id…"
           className="ml-auto w-72 rounded-deh-md border border-deh-border bg-deh-white px-3 py-2 text-deh-sm text-deh-text outline-none focus:border-deh-blue"
         />
       </div>
