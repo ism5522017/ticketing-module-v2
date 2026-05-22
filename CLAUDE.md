@@ -143,8 +143,7 @@ Ticketing Module V2/
 ├── eslint.config.mjs
 ├── components.json              # shadcn/ui config
 ├── drizzle.config.ts
-├── .env.example                 # committed template
-├── .env.local                   # gitignored, real secrets
+├── .env.local                   # gitignored, real secrets (see §9 "Required env vars")
 ├── src/
 │   ├── app/
 │   │   ├── (auth)/              # /login, /onboarding/* — no header
@@ -208,8 +207,7 @@ Ticketing Module V2/
 ### Setup
 ```bash
 cd "/Users/ismailmustafa/Desktop/BADRI MAHAL/CODING/Ticketing Module V2"
-cp .env.example .env.local
-# Fill in env vars (see §10)
+# Create .env.local and fill in the env vars listed in §9 "Required env vars".
 npm install
 npm run dev
 # open http://localhost:3000
@@ -408,7 +406,7 @@ call the server action, roll back on `{ ok: false }`.
 | Domain | https://deh-ticketing.vercel.app |
 | Database | Same Supabase project. SQL applied manually via Supabase Editor (no CI step) |
 | Storage | Supabase Storage bucket `ticket-attachments` |
-| Env vars | Set in Vercel dashboard; mirror `.env.example` |
+| Env vars | Set in Vercel dashboard; mirror the local `.env.local` (variable list below) |
 
 ### Required env vars
 

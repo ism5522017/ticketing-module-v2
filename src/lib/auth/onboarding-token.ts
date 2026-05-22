@@ -18,7 +18,7 @@ function getSecret(): string {
   const secret = process.env.ONBOARDING_TOKEN_SECRET;
   if (!secret) {
     throw new Error(
-      "ONBOARDING_TOKEN_SECRET is not set. Add it to .env.local — see .env.example.",
+      "ONBOARDING_TOKEN_SECRET is not set. Add it to .env.local — see CLAUDE.md §9 'Required env vars'.",
     );
   }
   return secret;
