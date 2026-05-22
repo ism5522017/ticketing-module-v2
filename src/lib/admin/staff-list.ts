@@ -1,5 +1,5 @@
 import "server-only";
-import { asc, eq } from "drizzle-orm";
+import { asc, eq, isNull, or } from "drizzle-orm";
 import { db } from "@/db/client";
 import { admins, buildings, drs, managers, tenants, units, users } from "@/db/schema";
 
@@ -98,6 +98,9 @@ export async function listDrs(): Promise<DrListRow[]> {
     .leftJoin(tenants, eq(tenants.id, drs.tenantId))
     .leftJoin(buildings, eq(buildings.id, drs.buildingId))
     .leftJoin(users, eq(users.id, drs.userId))
+    // Hide DRs whose building has been archived. (drs.building_id is NOT
+    // NULL in practice, but the leftJoin keeps the `or(isNull(...))` defensive.)
+    .where(or(isNull(drs.buildingId), isNull(buildings.archivedAt)))
     .orderBy(asc(buildings.name));
 
   return rows.map((r) => ({

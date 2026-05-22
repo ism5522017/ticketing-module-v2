@@ -458,6 +458,77 @@ approval and a Changelog entry that records the scope expansion.
 
 Newest at the top. ISO dates. Follow the format in §2.
 
+### 2026-05-22 — Hide archived buildings everywhere + flats admin + dead-field cleanup
+
+- **What:**
+  - **Archived buildings now fully invisible across every authenticated
+    view.** A building flagged `archived_at IS NOT NULL` disappears from:
+    admin dashboard KPIs, charts, heatmap; admin tickets list; admin
+    Khidmat Guzars list + credentials page; admin DRs list; manager
+    dashboard; DR dashboard; Khidmat Guzar dashboard. Society-scope
+    tickets (NULL building_id) keep showing — they have no building to
+    gate on. Files touched:
+    - [src/lib/admin/directory.ts](src/lib/admin/directory.ts) — `listAdminTickets`
+    - [src/lib/admin/budgets.ts](src/lib/admin/budgets.ts) — `getBudgetSummary` spend rollup
+    - [src/lib/admin/tenants-list.ts](src/lib/admin/tenants-list.ts) — `listAdminTenants` + count
+    - [src/app/(authed)/admin/staff/tenant-credentials/page.tsx](src/app/%28authed%29/admin/staff/tenant-credentials/page.tsx) — row + total queries
+    - [src/lib/admin/staff-list.ts](src/lib/admin/staff-list.ts) — `listDrs`
+    - [src/lib/manager/directory.ts](src/lib/manager/directory.ts) — `listManagerTickets`
+    - [src/lib/dr/dr-profile.ts](src/lib/dr/dr-profile.ts) — returns null when DR's building is archived (dashboard then redirects to /login)
+    - [src/lib/tenant-profile.ts](src/lib/tenant-profile.ts) — returns null when Khidmat Guzar's building is archived
+  - The pattern everywhere is the same predicate: `or(isNull(tickets.buildingId), isNull(buildings.archivedAt))` — kept consistent so future grep finds them all.
+  - **Flats admin page** at `/admin/buildings/[id]/units`. List + add +
+    inline edit + delete per flat. New files:
+    - [page.tsx](src/app/%28authed%29/admin/buildings/%5Bid%5D/units/page.tsx)
+    - [new-unit-form.tsx](src/app/%28authed%29/admin/buildings/%5Bid%5D/units/new-unit-form.tsx)
+    - [unit-row.tsx](src/app/%28authed%29/admin/buildings/%5Bid%5D/units/unit-row.tsx)
+    - [actions.ts](src/app/%28authed%29/admin/buildings/%5Bid%5D/units/actions.ts) (`createUnitAction`, `updateUnitAction`, `deleteUnitAction` — all gated on admin session + verify the unit belongs to the building in the URL)
+    - [src/lib/admin/building-units-list.ts](src/lib/admin/building-units-list.ts) — `listBuildingUnits` returns per-flat counts of active Khidmat Guzars and historical tickets via the same correlated-subquery pattern as `buildings-list.ts` (literal `public.*` so column qualifiers survive Drizzle's projection-stripping).
+    - Delete pre-checks `tenants.unit_id` references and returns a friendly error instead of letting Postgres' `RESTRICT` violation bubble up; `tickets.unit_id` is `SET NULL` so historical tickets survive intact.
+    - Archived buildings render the page read-only with a banner pointing to the archived-properties list.
+  - **"Manage flats" button** added to every row in [building-row.tsx](src/app/%28authed%29/admin/buildings/building-row.tsx); page header has a "← All properties" link.
+  - **Dead-field cleanup**: removed `code` from `BuildingSummary` ([buildings/list.ts](src/lib/buildings/list.ts)) and `AdminBuildingRow` ([buildings-list.ts](src/lib/admin/buildings-list.ts)), and `buildingCode` from `AdminTenantRow` ([tenants-list.ts](src/lib/admin/tenants-list.ts)). DB column `buildings.code` stays (per 2026-05-19 — dropping needs a destructive migration with no benefit).
+- **Why:**
+  - User asked for archived buildings to be **completely** hidden — no
+    leftover stats on KPI cards, no slice on the heatmap, no rows in any
+    Khidmat-Guzar list. Single-source predicates make this a sweep
+    rather than a whack-a-mole of UI flags.
+  - Flats admin was the gap noted in the 2026-05-22 audit (#5): units
+    could be created (tenant onboarding, "New flat" option) but never
+    edited or deleted; typos were permanent without SQL.
+  - Dead `code` fields were tagged in the same audit (#7) — UI no longer
+    references them, types should match.
+- **Tradeoffs / gotchas:**
+  - **Khidmat Guzars / DRs whose building gets archived can't use the
+    app.** Their profile getters return null and the dashboard redirects
+    to /login. Combined with the existing [2026-05-21 issue](#2026-05-21--fix-adminbuildings-500-drizzle-alias--projection-subquery-bugs) (login picker filters archived too), they're effectively locked out. This is intentional per the "completely hidden" requirement — but admins should remember that archiving = locking out everyone in that building.
+  - **Tickets count on /admin/buildings rows comes from a count that
+    DOESN'T filter archived,** because `unitCountSql` / `ticketCountSql` in
+    [buildings-list.ts](src/lib/admin/buildings-list.ts) are
+    correlated subqueries scoped to a single building. So for an
+    archived row, the count shows the totals up to archive time — that's
+    fine, the row itself is in the "Archived" tab where you'd expect
+    historical numbers.
+  - **Society-scope budget spend.** Tickets with NULL building_id are
+    society-scope. We keep them in the spend rollup because there's no
+    building to hide. If you archive every building, society-scope
+    spend still shows.
+  - **Flats delete uses hard delete** rather than a `units.archived_at`
+    soft-delete. Adding archived_at to units would mean every query
+    that touches units needs the same archived filter — same sprawl we
+    just did for buildings. Skipped because (a) units delete is
+    blocked when any tenant references them (the FK does the right
+    thing), and (b) `tickets.unit_id` is already `SET NULL` so
+    historical tickets survive a hard delete. Revisit if/when the user
+    asks for "show me deleted units later."
+  - **CSV duplicate-key sentinel.** The `ensureUnit`-style duplicate
+    check in `createUnitAction` uses the same case-insensitive
+    `(wing, flat)` key the find-or-create path uses, so admin-created
+    and tenant-onboarding-created flats can't fork into separate rows.
+- **Verification:** `tsc --noEmit` clean. `next build` clean — new
+  route `/admin/buildings/[id]/units` registered as dynamic. Manual
+  browser test not yet done.
+
 ### 2026-05-21 — Properties search bar + Add-Khidmat-Guzar can create new flats
 
 - **What:**

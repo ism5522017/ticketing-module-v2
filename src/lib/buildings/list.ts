@@ -7,7 +7,6 @@ import { buildings } from "@/db/schema";
 export interface BuildingSummary {
   id: string;
   name: string;
-  code: string | null;
   locality: string | null;
   city: string | null;
 }
@@ -27,7 +26,6 @@ export const listBuildings = unstable_cache(
       .select({
         id: buildings.id,
         name: buildings.name,
-        code: buildings.code,
         locality: buildings.locality,
         city: buildings.city,
       })

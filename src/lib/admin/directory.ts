@@ -1,5 +1,5 @@
 import "server-only";
-import { desc, eq, inArray } from "drizzle-orm";
+import { desc, eq, inArray, isNull, or } from "drizzle-orm";
 import { db } from "@/db/client";
 import { buildings, requisitions, tickets, units } from "@/db/schema";
 import { toAttachmentList } from "@/lib/tickets";
@@ -35,6 +35,9 @@ export async function listAdminTickets(): Promise<AdminTicket[]> {
     .from(tickets)
     .leftJoin(buildings, eq(buildings.id, tickets.buildingId))
     .leftJoin(units, eq(units.id, tickets.unitId))
+    // Hide tickets whose building is archived. Society-scope tickets
+    // (building_id IS NULL) are kept — they have no building to hide.
+    .where(or(isNull(tickets.buildingId), isNull(buildings.archivedAt)))
     .orderBy(desc(tickets.submittedAt));
 
   if (ticketRows.length === 0) return [];

@@ -52,6 +52,7 @@ export async function getTenantProfileFromSession(): Promise<TenantProfile | nul
       buildingId: buildings.id,
       buildingName: buildings.name,
       buildingAddress: buildings.address,
+      buildingArchivedAt: buildings.archivedAt,
       societyId: buildings.societyId,
     })
     .from(users)
@@ -64,6 +65,9 @@ export async function getTenantProfileFromSession(): Promise<TenantProfile | nul
   const r = rows[0];
   if (!r || r.role !== "tenant") return null;
   if (!r.buildingId || !r.unitId || !r.societyId) return null;
+  // If the Khidmat Guzar's building has been archived, treat them as
+  // orphaned — dashboard refuses to render so they get bounced out.
+  if (r.buildingArchivedAt) return null;
 
   const location = r.buildingAddress
     ? `${r.buildingName}, ${r.buildingAddress}`

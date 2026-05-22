@@ -37,6 +37,7 @@ export async function getDrProfileFromSession(): Promise<DrProfile | null> {
       drActive: drs.active,
       buildingId: buildings.id,
       buildingName: buildings.name,
+      buildingArchivedAt: buildings.archivedAt,
       societyId: buildings.societyId,
       tenantContact: tenants.contact,
       tenantPhone: tenants.phone,
@@ -50,6 +51,9 @@ export async function getDrProfileFromSession(): Promise<DrProfile | null> {
 
   const r = rows[0];
   if (!r || r.role !== "dr" || !r.drActive) return null;
+  // If the DR's building is archived, treat them as orphaned so the
+  // dashboard refuses to render and middleware can bounce them out.
+  if (r.buildingArchivedAt) return null;
 
   const contact = r.tenantContact ?? r.tenantPhone ?? r.userPhone ?? "";
 

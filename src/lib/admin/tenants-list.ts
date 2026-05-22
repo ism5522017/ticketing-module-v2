@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, desc, eq, ilike, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, isNull, or, sql, type SQL } from "drizzle-orm";
 import { db } from "@/db/client";
 import { buildings, tenants, units, users } from "@/db/schema";
 
@@ -13,7 +13,6 @@ export interface AdminTenantRow {
   unitId: string | null;
   buildingId: string | null;
   buildingName: string | null;
-  buildingCode: string | null;
   wing: string | null;
   flat: string | null;
   needsPasswordSet: boolean;
@@ -45,6 +44,10 @@ export async function listAdminTenants(input: AdminTenantListInput): Promise<Adm
   const offset = (page - 1) * perPage;
 
   const conditions: SQL[] = [];
+  // Hide Khidmat Guzars in archived buildings entirely. Tenants whose unit
+  // is missing (legacy orphans) keep showing — they have no building to
+  // gate on.
+  conditions.push(or(isNull(units.buildingId), isNull(buildings.archivedAt))!);
   if (input.buildingId) {
     conditions.push(eq(units.buildingId, input.buildingId));
   }
@@ -76,7 +79,6 @@ export async function listAdminTenants(input: AdminTenantListInput): Promise<Adm
       unitId: tenants.unitId,
       buildingId: units.buildingId,
       buildingName: buildings.name,
-      buildingCode: buildings.code,
       wing: units.wing,
       flat: units.flat,
       needsPasswordSet: users.needsPasswordSet,
@@ -99,13 +101,14 @@ export async function listAdminTenants(input: AdminTenantListInput): Promise<Adm
         .limit(perPage)
         .offset(offset);
 
-  const countRows = whereExpr
-    ? await db
-        .select({ n: sql<number>`count(*)::int` })
-        .from(tenants)
-        .leftJoin(units, eq(units.id, tenants.unitId))
-        .where(whereExpr)
-    : await db.select({ n: sql<number>`count(*)::int` }).from(tenants);
+  // Count must mirror the row query's joins: archived-building filter
+  // references both `units` AND `buildings`, so both leftJoins are needed.
+  const countRows = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(tenants)
+    .leftJoin(units, eq(units.id, tenants.unitId))
+    .leftJoin(buildings, eq(buildings.id, units.buildingId))
+    .where(whereExpr);
   const total = countRows[0]?.n ?? 0;
 
   return {
@@ -119,7 +122,6 @@ export async function listAdminTenants(input: AdminTenantListInput): Promise<Adm
       unitId: r.unitId,
       buildingId: r.buildingId,
       buildingName: r.buildingName,
-      buildingCode: r.buildingCode,
       wing: r.wing,
       flat: r.flat,
       needsPasswordSet: r.needsPasswordSet ?? false,

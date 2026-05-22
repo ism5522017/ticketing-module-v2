@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -139,6 +140,12 @@ export function BuildingRow({ row }: { row: AdminBuildingRow }) {
       <td className="px-3 py-3 text-deh-sm tabular-nums">{row.ticketCount}</td>
       <td className="px-3 py-3">
         <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href={`/admin/buildings/${row.id}/units`}
+            className="inline-flex items-center rounded-md border border-deh-border bg-background px-2.5 py-1 text-deh-xs font-medium text-deh-text hover:bg-deh-card"
+          >
+            Manage flats
+          </Link>
           {!archived ? (
             <>
               <Button size="sm" variant="outline" onClick={() => setEditing(true)} disabled={isPending}>

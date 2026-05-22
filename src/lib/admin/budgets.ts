@@ -1,7 +1,7 @@
 import "server-only";
-import { and, eq, gte, lt, sql } from "drizzle-orm";
+import { and, eq, gte, isNull, lt, or, sql } from "drizzle-orm";
 import { db } from "@/db/client";
-import { monthlyBudgets, requisitions, tickets } from "@/db/schema";
+import { buildings, monthlyBudgets, requisitions, tickets } from "@/db/schema";
 
 /**
  * Categories the tenant/DR forms emit. The editor renders this list as the
@@ -83,6 +83,9 @@ export async function getBudgetSummary(periodOrNull?: string | null): Promise<Bu
     budgets.set(b.category.toLowerCase(), Number(b.amount ?? 0));
   }
 
+  // leftJoin buildings so we can filter out spend that lives in archived
+  // buildings — society-scope tickets (NULL building_id) have no building
+  // row to gate on so the `or(isNull(...))` keeps them in.
   const spendRows = await db
     .select({
       type: tickets.type,
@@ -90,11 +93,13 @@ export async function getBudgetSummary(periodOrNull?: string | null): Promise<Bu
     })
     .from(requisitions)
     .innerJoin(tickets, eq(tickets.id, requisitions.issueId))
+    .leftJoin(buildings, eq(buildings.id, tickets.buildingId))
     .where(
       and(
         eq(requisitions.adminApproval, "Approved"),
         gte(tickets.submittedAt, periodStart),
         lt(tickets.submittedAt, periodEnd),
+        or(isNull(tickets.buildingId), isNull(buildings.archivedAt)),
       ),
     )
     .groupBy(tickets.type);

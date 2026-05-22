@@ -11,7 +11,6 @@ export interface AdminBuildingRow {
   state: string | null;
   address: string | null;
   category: string | null;
-  code: string | null;
   unitCount: number;
   ticketCount: number;
   createdAt: string;
@@ -102,7 +101,6 @@ export async function listAdminBuildings(
       state: buildings.state,
       address: buildings.address,
       category: buildings.category,
-      code: buildings.code,
       unitCount: unitCountSql,
       ticketCount: ticketCountSql,
       createdAt: buildings.createdAt,
@@ -120,7 +118,6 @@ export async function listAdminBuildings(
     state: r.state,
     address: r.address,
     category: r.category,
-    code: r.code,
     unitCount: Number(r.unitCount ?? 0),
     ticketCount: Number(r.ticketCount ?? 0),
     createdAt: String(r.createdAt),

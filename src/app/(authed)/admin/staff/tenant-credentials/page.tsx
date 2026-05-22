@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { and, asc, eq, ilike, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, eq, ilike, isNull, or, sql, type SQL } from "drizzle-orm";
 import { db } from "@/db/client";
 import { buildings, tenants, units, users } from "@/db/schema";
 import { getAdminProfileFromSession } from "@/lib/admin/admin-profile";
@@ -32,6 +32,8 @@ export default async function TenantCredentialsPage({
   const q = typeof sp.q === "string" ? sp.q : undefined;
 
   const conditions: SQL[] = [eq(tenants.active, true)];
+  // Hide Khidmat Guzars in archived buildings entirely.
+  conditions.push(or(isNull(units.buildingId), isNull(buildings.archivedAt))!);
   if (buildingId) conditions.push(eq(units.buildingId, buildingId));
   if (q) {
     const pattern = `%${q}%`;
@@ -84,9 +86,17 @@ export default async function TenantCredentialsPage({
     };
   });
 
-  // Total count for the header summary line.
+  // Total count for the header summary line — mirror the row query's
+  // archived-building filter so the denominator matches what the table shows.
   const totalCountRows = await db.execute<{ n: number }>(
-    sql`select count(*)::int as n from public.tenants where active = true`,
+    sql`
+      select count(*)::int as n
+      from public.tenants t
+      left join public.units u on u.id = t.unit_id
+      left join public.buildings b on b.id = u.building_id
+      where t.active
+        and (u.building_id is null or b.archived_at is null)
+    `,
   );
   const totalCount = totalCountRows[0]?.n ?? 0;
 
